@@ -13,7 +13,7 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 1a
+# Milestone reached: 1b
 # 
 # Additional features implemented:
 # - None
@@ -39,30 +39,48 @@ jal 	DrawBackground
 
 lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
 
-addi 	$a0, $s0, 512			# $a0 = $s0 + 512
-addi	$a1, $zero, 8 			# $a1 = 8
-jal 	DrawLog 			# row 1 log 1
+addi 	$a0, $s0, 512			# Top water row, leftmost position
+addi	$a1, $zero, 8 			# Length of log is 8
+jal 	DrawLog 			
 
-addi 	$a0, $s0, 576			# $a0 = $s0 + 576
-addi	$a1, $zero, 8 			# $a1 = 8
-jal 	DrawLog				# row 1 log 2
+addi 	$a0, $s0, 576			# Top water row, centre position
+addi	$a1, $zero, 8 			# Length of log is 8
+jal 	DrawLog				
 
-addi 	$a0, $s0, 1056			# $a0 = $s0 + 1056
-addi	$a1, $zero, 8 			# $a1 = 8
-jal 	DrawLog				# row 2 log 1
+addi 	$a0, $s0, 1056			# Mid water row, 1/4 position
+addi	$a1, $zero, 8 			# Length of log is 8
+jal 	DrawLog			
 
-addi 	$a0, $s0, 1120			# $a0 = $s0 + 1120
-addi	$a1, $zero, 8 			# $a1 = 8
-jal 	DrawLog				# row 2 log 2
+addi 	$a0, $s0, 1120			# Mid water row, 3/4 position
+addi	$a1, $zero, 8 			# Length of log is 8
+jal 	DrawLog				
 
-addi 	$a0, $s0, 1536			# $a0 = $s0 + 1536
-addi	$a1, $zero, 8 			# $a1 = 8
-jal 	DrawLog				# row 3 log 1
+addi 	$a0, $s0, 1536			# Bot water row, leftmost position
+addi	$a1, $zero, 8 			# Length of log is 8
+jal 	DrawLog				
 
-addi 	$a0, $s0, 1600			# $a0 = $s0 + 1600
-addi	$a1, $zero, 8 			# $a1 = 8
-jal 	DrawLog 			# row 3 log 2
+addi 	$a0, $s0, 1600			# Bot water row, centre position
+addi	$a1, $zero, 8 			# Length of log is 8
+jal 	DrawLog 			
 
+addi 	$a0, $s0, 2560 			# Top road row, leftmost position
+addi 	$a1, $zero, 8 			# Length of vehicle is 8
+jal 	DrawVehicle 		
+
+addi 	$a0, $s0, 2624 			# Top road row, centre position
+addi 	$a1, $zero, 8 			# Length of vehicle is 8
+jal 	DrawVehicle 		
+
+addi 	$a0, $s0, 3104 			# Bot road row, 1/4 position
+addi 	$a1, $zero, 8 			# Length of vehicle is 4
+jal 	DrawVehicle 	
+
+addi 	$a0, $s0, 3168 			# Bot road row, 3/4 position
+addi 	$a1, $zero, 8 			# Length of vehicle is 4
+jal 	DrawVehicle 		
+
+addi 	$a0, $s0, 3632			# Draw frog in start region
+jal 	DrawFrog 	
 
 Exit:
 li $v0, 10
@@ -154,9 +172,9 @@ beq 	$t3, 4, DrawLogMultiRowEnd	# 	breaks loop when $t3 == 4
 
 DrawLogRow:
 beq 	$t2, $a1, DrawLogRowEnd 	# 	while ($t2 != $a1) {
-sw 	$t1, 0($t0) 			# 		*($t0) = $t1;
-addi 	$t0, $t0, 4 			# 		$t0 += 4;
-addi 	$t2, $t2, 1 			# 		++$t2;
+sw 	$t1, 0($t0) 			# 		*($t0) = $t1;  // draw
+addi 	$t0, $t0, 4 			# 		$t0 += 4;  // increment pointer to display
+addi 	$t2, $t2, 1 			# 		++$t2;  // increment loop variable
 j	DrawLogRow			# 	}
 
 DrawLogRowEnd:
@@ -170,6 +188,87 @@ j DrawLogMultiRow			# }
 
 DrawLogMultiRowEnd:
 jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |--------------------------| Function: DrawVehicle |--------------------------------------------|
+
+# Arguments: 		$a0: memory location of the upper-left corner of the vehicle
+#			$a1: length of the vehicle in pixels
+# Return values:	none
+
+DrawVehicle:
+add 	$t0, $a0, $zero 		# $t0 = $a0;
+lw 	$t1, vehicleColour		# $t1 = vehicleColour;
+add 	$t2, $zero, $zero 		# $t2 = 0;  // inner loop pixel counter
+add 	$t3, $zero, $zero 		# $t3 = 0;  // outer loop loop variable
+add 	$t4, $zero, $zero 		# $t4 = 0;  // increment to row number by address
+
+DrawVehicleMultiRow: 			# for ($t3 = 0; $t3 < 4; ++$t3) {
+beq 	$t3, 4, DrawVehicleMultiRowEnd	# 	breaks loop when $t3 == 4
+
+DrawVehicleRow:
+beq 	$t2, $a1, DrawVehicleRowEnd 	# 	while ($t2 != $a1) {
+sw 	$t1, 0($t0) 			# 		*($t0) = $t1;  // draw
+addi 	$t0, $t0, 4 			# 		$t0 += 4;  // increment pointer to display
+addi 	$t2, $t2, 1 			# 		++$t2;  // increment loop variable
+j	DrawVehicleRow			# 	}
+
+DrawVehicleRowEnd:
+
+addi 	$t4, $t4, 128 			# 	$t4 += 128;
+add 	$t0, $a0, $t4 			# 	$t0 = $a0 + $t4;  // next row
+add 	$t2, $zero, $zero 		# 	$t2 = 0;
+addi 	$t3, $t3, 1 			# 	increment $t3 in each iteration
+
+j DrawVehicleMultiRow			# }
+
+DrawVehicleMultiRowEnd:
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |-----------------------------| Function: DrawFrog |--------------------------------------------|
+
+# Arguments: 		$a0: memory location of the upper-left corner of the frog
+# Return values:	none
+
+DrawFrog:
+add 	$t0, $a0, $zero 		# $t0 = $a0;
+lw 	$t1, frogColour			# $t1 = frogColour;
+add 	$t2, $zero, $zero 		# $t2 = 0;  // current row
+
+DrawFrogConditional:
+beq 	$t2, 0, DrawFrogExterior 	# Draw first row of the frog
+beq 	$t2, 1, DrawFrogRow		# Draw second row of the frog
+beq 	$t2, 2, DrawFrogInterior	# Draw third row of the frog
+beq 	$t2, 3, DrawFrogRow		# Draw last row of the frog
+
+jr 	$ra				# Finish drawing the frog
+
+DrawFrogExterior:
+sw 	$t1, 0($t0) 			# Draw the left front leg
+sw 	$t1, 12($t0) 			# Draw the right front leg
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j 	DrawFrogConditional
+
+DrawFrogRow:
+sw 	$t1, 0($t0) 			# Draw four pixels in the current row
+sw 	$t1, 4($t0)
+sw 	$t1, 8($t0)
+sw 	$t1, 12($t0)
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j 	DrawFrogConditional
+
+DrawFrogInterior:
+sw 	$t1, 4($t0) 			# Draw the left torso
+sw 	$t1, 8($t0) 			# Draw the right torso
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j	DrawFrogConditional
+
 
 # |-----------------------------------------------------------------------------------------------|
 
