@@ -37,21 +37,13 @@ vehicleColour: 		.word 0x000000
 
 jal 	DrawBackground
 
-lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
+lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress		
 
-addi 	$a0, $s0, 512			# Top water row, leftmost position
-addi	$a1, $zero, 8 			# Length of log is 8
-jal 	DrawLog 			
-
-addi 	$a0, $s0, 576			# Top water row, centre position
-addi	$a1, $zero, 8 			# Length of log is 8
-jal 	DrawLog				
-
-addi 	$a0, $s0, 1056			# Mid water row, 1/4 position
+addi 	$a0, $s0, 1056			# Top water row, 1/4 position
 addi	$a1, $zero, 8 			# Length of log is 8
 jal 	DrawLog			
 
-addi 	$a0, $s0, 1120			# Mid water row, 3/4 position
+addi 	$a0, $s0, 1120			# Top water row, 3/4 position
 addi	$a1, $zero, 8 			# Length of log is 8
 jal 	DrawLog				
 
@@ -97,7 +89,7 @@ li 	$t1, 0 				# $t1 = 0;
 lw 	$t2, goalRegionColour		# $t2 = goalRegionColour;
 
 DrawGoalRegion:
-beq 	$t1, 512, DrawGoalRegionEnd 	# while ($t1 != 512) {
+beq 	$t1, 1024, DrawGoalRegionEnd 	# while ($t1 != 1024) {
 add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
 sw 	$t2, 0($t3)			# 	*($t3) = $t2;
 addi 	$t1, $t1, 4			# 	$t1 += 4;
