@@ -82,6 +82,12 @@ li 	$v0, 32 			# Sleep
 li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
 syscall
 
+UpdateObjects:
+
+la 	$a0, logTopSpace 		# $a0 = logTopSpace
+jal 	MoveObjectLeft 			# Move the top log left
+
+
 j Main
 
 CheckKeyInput:
@@ -363,6 +369,80 @@ sw 	$t1, 8($t0) 			# Draw the right torso
 addi 	$t0, $t0, 128			# Increment the display pointer to next row
 addi 	$t2, $t2, 1 			# Update row number
 j	DrawFrogConditional
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |---------------------------| Function: MoveObjectLeft |----------------------------------------|
+ 
+# Arguments: 		$a0: Address of object to be operated
+# Return value: 	none
+
+MoveObjectLeft:
+
+add 	$t0, $a0, $zero 			# Store address of object into $t0
+lw 	$t1, 0($t0) 				# Store content of $t0 into $t1
+li 	$t3, 0					# $t3 = 0, counts how many operations of fill-unfill is performed
+add 	$t4, $t1, $zero 			# $t4 = 0, flag for wrapping
+
+beq 	$t4, 1, MoveObjectLeftSearchZero 	# Leftmost pixel is filled, unfill first
+
+MoveObjectLeftSearchOne: 			# Notice that $t1 == 0 at this point
+beq 	$t1, 1, MoveObjectLeftSearchOneEnd	# Iterate until we have reached a filled pixel
+addi 	$t0, $t0, 4 				# Increment address
+lw 	$t1, 0($t0) 				# Update address content
+j 	MoveObjectLeftSearchOne
+
+MoveObjectLeftSearchOneEnd: 			# Found the first filled pixel
+subi 	$t0, $t0, 4 				# Decrement address to prepare for filling
+li 	$t2, 1	 				# $t2 = 1
+sw 	$t2, 0($t0) 				# Fill pixel
+sw 	$t2, 128($t0) 				# Fill second row
+sw 	$t2, 256($t0) 				# third row
+sw 	$t2, 384($t0) 				# fourth
+
+MoveObjectLeftSearchZero: 			# Notice that $t1 == 1 at this point
+beq 	$t1, 0, MoveObjectLeftSearchZeroEnd	# Iterate until we have reached an unfilled pixel
+addi 	$t0, $t0, 4 				# Increment address
+lw 	$t1, 0($t0) 				# Update address content
+j 	MoveObjectLeftSearchZero
+
+MoveObjectLeftSearchZeroEnd: 			# Found the first unfilled pixel
+subi 	$t0, $t0, 4 				# Decrement address to prepare for filling
+li 	$t2, 0					# $t2 = 0
+sw 	$t2, 0($t0) 				# Fill pixel
+sw 	$t2, 128($t0) 				# Fill second row
+sw 	$t2, 256($t0) 				# third row
+sw 	$t2, 384($t0) 				# fourth
+
+addi 	$t3, $t3, 1 				# ++$t3 since we have performed a fill-unfill operation
+beq 	$t3, 2, MoveObjectLeftEnd 		# If two ops are performed, we're done
+j 	MoveObjectLeftSearchOne			# Else we repeat the fill-unfill operation
+
+MoveObjectLeftEnd:
+
+beq 	$t4, 1, MoveObjectLeftWrap		# Wrap flag is on, perform wrap
+jr 	$ra 					# Else we're done
+
+MoveObjectLeftWrap:
+li 	$t2, 1					# $t2 = 1
+
+MoveObjectLeftSearchWrap: 			# Notice that $t1 == 0 at this point
+sub 	$t5, $t0, $a0 				# Store offset between $t0 and $a0 in $t5
+beq 	$t1, 1, MoveObjectLeftSearchWrapEnd 	# Break if found the first filled pixel
+beq 	$t5, 128, MoveObjectLeftSearchWrapEnd 	# Also break if reached end of row
+addi 	$t0, $t0, 4 				# Increment address
+lw 	$t1, 0($t0) 				# Update address content
+j 	MoveObjectLeftSearchWrap
+
+MoveObjectLeftSearchWrapEnd:
+subi 	$t0, $t0, 4 				# Found the first filled pixel
+li 	$t2, 1					# $t2 = 1
+sw 	$t2, 0($t0) 				# Fill pixel
+sw 	$t2, 128($t0) 				# Fill second row
+sw 	$t2, 256($t0) 				# third row
+sw 	$t2, 384($t0) 				# fourth
+
+jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
 
