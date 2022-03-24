@@ -13,7 +13,7 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 1b
+# Milestone reached: 1
 # 
 # Additional features implemented:
 # - None
@@ -34,6 +34,8 @@ logColour: 		.word 0xcf6f50
 vehicleColour: 		.word 0x000000
 	
 .text
+
+Main:
 
 jal 	DrawBackground
 
@@ -74,9 +76,12 @@ jal 	DrawVehicle
 addi 	$a0, $s0, 3632			# Draw frog in start region
 jal 	DrawFrog 	
 
-Exit:
-li $v0, 10
+Sleep:
+li 	$v0, 32 			# Sleep
+li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
 syscall
+
+j Main
 
 # |----------------------------| Function: DrawBackground |--------------------------------------|
 
