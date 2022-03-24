@@ -22,6 +22,7 @@
 
 .data
 displayAddress: 	.word 0x10008000
+keyboardAddress: 	.word 0xffff0000
 
 frogColour: 		.word 0x69db41
 
@@ -35,11 +36,13 @@ vehicleColour: 		.word 0x000000
 	
 .text
 
+Init:
+lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
+addi 	$s1, $s0, 3632 			# Initialize frog position
+
 Main:
 
 jal 	DrawBackground
-
-lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress		
 
 addi 	$a0, $s0, 1056			# Top water row, 1/4 position
 addi	$a1, $zero, 8 			# Length of log is 8
@@ -73,8 +76,13 @@ addi 	$a0, $s0, 3168 			# Bot road row, 3/4 position
 addi 	$a1, $zero, 8 			# Length of vehicle is 4
 jal 	DrawVehicle 		
 
-addi 	$a0, $s0, 3632			# Draw frog in start region
+add	$a0, $s1, $zero			# Draw frog in start region
 jal 	DrawFrog 	
+
+CheckKeyboardInput:
+lw 	$t0, keyboardAddress 		# Load keyboard address into $t0
+lw 	$t1, 0($t0) 			# Check whether key is pressed and store in $t1
+beq 	$t1, 1, CheckKeyInput		# Proceed onto check which key it is if some key is pressed
 
 Sleep:
 li 	$v0, 32 			# Sleep
@@ -82,6 +90,45 @@ li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
 syscall
 
 j Main
+
+CheckKeyInput:
+lw 	$t0, keyboardAddress
+addi	$t0, $t0, 4			# Load key address to $t0
+sub 	$t1, $s1, $s0 			# Obtain relative position of frog and store into $t1
+
+lw 	$t2, 0($t0) 			# Store the ascii of the pressed key into $t2
+beq 	$t2, 0x77, RespondToW		# w is pressed
+beq 	$t2, 0x61, RespondToA		# a is pressed
+beq 	$t2, 0x73, RespondToS		# s is pressed
+beq 	$t2, 0x64, RespondToD		# d is pressed
+
+j Main 					# not one of wasd, go back
+
+RespondToW:
+ble 	$t1, 112, Main 			# Frog is in top row, go to Main
+subi 	$s1, $s1, 512 			# Move frog up 1 row
+j 	Main
+
+RespondToA:
+li 	$t2, 512 			# $t2 = 512
+div 	$t1, $t2 			# Divide the relative location of the frog by 512
+mfhi	$t3				# $t3 = $t2 % 512
+beq 	$t3, 0, Main 			# Frog is on the left edge, go to Main
+subi 	$s1, $s1, 16 			# Move frog left 1 spot
+j 	Main
+
+RespondToS:
+bge 	$t1, 3584, Main			# Frog is in bottom row, go to Main
+addi 	$s1, $s1, 512			# Move frow down 1 row
+j 	Main
+
+RespondToD:
+li 	$t2, 512 			# $t2 = 512
+div 	$t1, $t2			# Divide the relative location of the frog by 512
+mfhi 	$t3 				# $t3 = $t2 % 512
+beq 	$t3, 112, Main			# Frog is on the right edge, go to Main
+addi 	$s1, $s1, 16			# Move frog right 1 spot
+j 	Main
 
 # |----------------------------| Function: DrawBackground |--------------------------------------|
 
