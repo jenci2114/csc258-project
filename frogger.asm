@@ -13,7 +13,7 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 1
+# Milestone reached: 2a
 # 
 # Additional features implemented:
 # - None
@@ -33,6 +33,15 @@ waterColour:		.word 0x000044
 
 logColour: 		.word 0xcf6f50
 vehicleColour: 		.word 0x000000
+
+frogPosX: 		.word 0x3	# From left to right, 0-based indexing
+frogPosY: 		.word 0x7	# From top downwawrds, 0-based indexing
+
+logTopSpace: 		.space 512	# Top Log
+logBotSpace: 		.space 512 	# Bottom Log
+
+vehicleTopSpace: 	.space 512 	# Top Vehicle
+vehicleBotSpace: 	.space 512 	# Bottom Vehicle
 	
 .text
 
@@ -40,41 +49,28 @@ Init:
 lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
 addi 	$s1, $s0, 3632 			# Initialize frog position
 
+la 	$a0, logTopSpace 		# $a0 = logTopSpace
+li 	$a1, 0				# $a1 = 0
+jal 	InitMem				# InitMem for logTopSpace
+
+la 	$a0, logBotSpace 		# $a0 = logBotSpace
+li 	$a1, 1				# $a1 = 1
+jal 	InitMem				# InitMem for logBotSpace
+
+la 	$a0, vehicleTopSpace 		# $a0 = vehicleTopSpace
+li 	$a1, 1				# $a1 = 1
+jal 	InitMem				# InitMem for vehicleTopSpace
+
+la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
+li 	$a1, 0				# $a1 = 0
+jal 	InitMem				# InitMem for vehicleBotSpace
+
+
+
+
 Main:
 
-jal 	DrawBackground
-
-addi 	$a0, $s0, 1056			# Top water row, 1/4 position
-addi	$a1, $zero, 8 			# Length of log is 8
-jal 	DrawLog			
-
-addi 	$a0, $s0, 1120			# Top water row, 3/4 position
-addi	$a1, $zero, 8 			# Length of log is 8
-jal 	DrawLog				
-
-addi 	$a0, $s0, 1536			# Bot water row, leftmost position
-addi	$a1, $zero, 8 			# Length of log is 8
-jal 	DrawLog				
-
-addi 	$a0, $s0, 1600			# Bot water row, centre position
-addi	$a1, $zero, 8 			# Length of log is 8
-jal 	DrawLog 			
-
-addi 	$a0, $s0, 2560 			# Top road row, leftmost position
-addi 	$a1, $zero, 8 			# Length of vehicle is 8
-jal 	DrawVehicle 		
-
-addi 	$a0, $s0, 2624 			# Top road row, centre position
-addi 	$a1, $zero, 8 			# Length of vehicle is 8
-jal 	DrawVehicle 		
-
-addi 	$a0, $s0, 3104 			# Bot road row, 1/4 position
-addi 	$a1, $zero, 8 			# Length of vehicle is 4
-jal 	DrawVehicle 	
-
-addi 	$a0, $s0, 3168 			# Bot road row, 3/4 position
-addi 	$a1, $zero, 8 			# Length of vehicle is 4
-jal 	DrawVehicle 		
+jal 	DrawBackground	
 
 add	$a0, $s1, $zero			# Draw frog in start region
 jal 	DrawFrog 	
@@ -130,6 +126,49 @@ beq 	$t3, 112, Main			# Frog is on the right edge, go to Main
 addi 	$s1, $s1, 16			# Move frog right 1 spot
 j 	Main
 
+# |--------------------------------| Function: InitMem |-----------------------------------------|
+
+# Arguments: 		$a0: Address of memory to be initialized
+# 			$a1: Initial value
+# Return values: 	none
+
+InitMem:
+add	$t0, $a1, $zero			# $t0 = initial value
+li	$t1, 0				# $t1 = 0, outer loop variable
+add 	$t2, $a0, $zero			# $t2 = address of memory
+
+StoreMem:
+beq 	$t1, 4, StoreMemEnd		# Break if finish storing mem
+li 	$t3, 0				# $t3 = 0, inner loop variable
+
+StoreMemBlock:
+beq 	$t3, 8, StoreMemBlockEnd	# Break if finish storing this block
+sw	$t0, 0($t2)			# Store value of $t0 to the current pixel
+sw 	$t0, 128($t2) 			# Do the same for row 2
+sw 	$t0, 256($t2) 			# row 3
+sw 	$t0, 384($t2) 			# row 4
+addi 	$t2, $t2, 4 			# Increment pixel count
+addi 	$t3, $t3, 1			# Increment inner loop variable
+j 	StoreMemBlock 
+
+StoreMemBlockEnd:
+addi 	$t1, $t1, 1 			# Increment outer loop variable
+
+beq 	$t0, 0, SetMemExistence 	# Check if $t0 == 0, branch if so
+li 	$t0, 0				# If not, $t0 = 0
+j 	StoreMem
+
+SetMemExistence:
+li 	$t0, 1 				# $t0 = 1
+j 	StoreMem
+
+StoreMemEnd:
+
+jr 	$ra
+
+
+# |----------------------------------------------------------------------------------------------|
+
 # |----------------------------| Function: DrawBackground |--------------------------------------|
 
 # Arguments: 		none
@@ -150,15 +189,53 @@ j DrawGoalRegion			# }
 DrawGoalRegionEnd:			# $t1 == 512 at this point
 
 lw 	$t2, waterColour		# $t2 = waterColour;
+la 	$t4, logTopSpace 		# $t4 = adddress of logTopSpace
+lw 	$t5, logColour			# $t5 = logColour
+li	$t6, 0 				# $t6 is how much we move from logTopSpace
 				
-DrawWater:
-beq 	$t1, 2048, DrawWaterEnd 	# while ($t1 != 2048) {
-add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
+DrawTopWater:
+beq 	$t1, 1536, DrawTopWaterEnd 	# while ($t1 != 1536) {
+add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;
+add 	$t7, $t4, $t6			# 	$t7 is the current position relative to log
+lw 	$t8, 0($t7) 			# 	$t8 = whether current pixel is log
+beq 	$t8, 1, DrawTopLog 		# 	if ($t8) draw log	
+
 sw 	$t2, 0($t3)			# 	*($t3) = $t2;
 addi 	$t1, $t1, 4			# 	$t1 += 4;
-j 	DrawWater			# }
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawTopWater			# }
 
-DrawWaterEnd:				# $t1 == 2048 at this point
+DrawTopLog:
+sw 	$t5, 0($t3) 			# 	*($t3) = $t5;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawTopWater			# }
+
+
+DrawTopWaterEnd:			# $t1 == 1536 at this point
+
+la 	$t4, logBotSpace 		# $t4 = adddress of logBotSpace
+li	$t6, 0 				# $t6 is how much we move from logBotSpace
+
+DrawBotWater:
+beq 	$t1, 2048, DrawBotWaterEnd 	# while ($t1 != 2048) {
+add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
+add 	$t7, $t4, $t6			# 	$t7 is the current position relative to log
+lw 	$t8, 0($t7) 			# 	$t8 = whether current pixel is log
+beq 	$t8, 1, DrawBotLog 		# 	if ($t8) draw log	
+
+sw 	$t2, 0($t3)			# 	*($t3) = $t2;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawBotWater			# }
+
+DrawBotLog:
+sw 	$t5, 0($t3) 			# 	*($t3) = $t5;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawBotWater			# }
+
+DrawBotWaterEnd:			# $t1 == 2048 at this point
 
 lw 	$t2, safeRegionColour 		# $t2 = safeRegionColour;
 
@@ -172,15 +249,52 @@ j 	DrawSafeRegion			# }
 DrawSafeRegionEnd:			# $t1 == 2560 at this point
 
 lw 	$t2, roadColour 		# $t2 = roadColour;
+la 	$t4, vehicleTopSpace 		# $t4 = adddress of vehicleTopSpace
+lw 	$t5, vehicleColour		# $t5 = vehicleColour
+li	$t6, 0 				# $t6 is how much we move from vehicleTopSpace
 
-DrawRoad:
-beq 	$t1, 3584, DrawRoadEnd 		# while ($t1 != 3584) {
+DrawTopRoad:
+beq 	$t1, 3072, DrawTopRoadEnd 	# while ($t1 != 3072) {
 add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
+add 	$t7, $t4, $t6			# 	$t7 is the current position relative to vehicle
+lw 	$t8, 0($t7) 			# 	$t8 = whether current pixel is vehicle
+beq 	$t8, 1, DrawTopVehicle 		# 	if ($t8) draw vehicle	
+
 sw 	$t2, 0($t3)			# 	*($t3) = $t2;
 addi 	$t1, $t1, 4			# 	$t1 += 4;
-j 	DrawRoad			# }
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawTopRoad			# }
 
-DrawRoadEnd:				# $t1 = 3584 at this point
+DrawTopVehicle:
+sw 	$t5, 0($t3) 			# 	*($t3) = $t5;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawTopRoad			# }
+
+DrawTopRoadEnd:				# $t1 = 3072 at this point
+
+la 	$t4, vehicleBotSpace 		# $t4 = adddress of vehicleBotSpace
+li	$t6, 0 				# $t6 is how much we move from vehicleBotSpace
+
+DrawBotRoad:
+beq 	$t1, 3584, DrawBotRoadEnd 	# while ($t1 != 3584) {
+add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;
+add 	$t7, $t4, $t6			# 	$t7 is the current position relative to vehicle
+lw 	$t8, 0($t7) 			# 	$t8 = whether current pixel is vehicle
+beq 	$t8, 1, DrawBotVehicle 		# 	if ($t8) draw vehicle	
+	
+sw 	$t2, 0($t3)			# 	*($t3) = $t2;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawBotRoad			# }
+
+DrawBotVehicle:
+sw 	$t5, 0($t3) 			# 	*($t3) = $t5;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+addi 	$t6, $t6, 4 			# 	$t6 += 4;
+j 	DrawBotRoad			# }
+
+DrawBotRoadEnd:				# $t1 = 3584 at this point
 
 lw 	$t2, safeRegionColour 		# $t2 = safeRegionColour;
 
@@ -197,80 +311,6 @@ jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
 
-
-# |--------------------------| Function: DrawLog |------------------------------------------------|
-
-# Arguments: 		$a0: memory location of the upper-left corner of the log
-#			$a1: length of the log in pixels
-# Return values:	none
-
-DrawLog:
-add 	$t0, $a0, $zero 		# $t0 = $a0;
-lw 	$t1, logColour			# $t1 = logColour;
-add 	$t2, $zero, $zero 		# $t2 = 0;  // inner loop pixel counter
-add 	$t3, $zero, $zero 		# $t3 = 0;  // outer loop loop variable
-add 	$t4, $zero, $zero 		# $t4 = 0;  // increment to row number by address
-
-DrawLogMultiRow: 			# for ($t3 = 0; $t3 < 4; ++$t3) {
-beq 	$t3, 4, DrawLogMultiRowEnd	# 	breaks loop when $t3 == 4
-
-DrawLogRow:
-beq 	$t2, $a1, DrawLogRowEnd 	# 	while ($t2 != $a1) {
-sw 	$t1, 0($t0) 			# 		*($t0) = $t1;  // draw
-addi 	$t0, $t0, 4 			# 		$t0 += 4;  // increment pointer to display
-addi 	$t2, $t2, 1 			# 		++$t2;  // increment loop variable
-j	DrawLogRow			# 	}
-
-DrawLogRowEnd:
-
-addi 	$t4, $t4, 128 			# 	$t4 += 128;
-add 	$t0, $a0, $t4 			# 	$t0 = $a0 + $t4;  // next row
-add 	$t2, $zero, $zero 		# 	$t2 = 0;
-addi 	$t3, $t3, 1 			# 	increment $t3 in each iteration
-
-j DrawLogMultiRow			# }
-
-DrawLogMultiRowEnd:
-jr 	$ra
-
-# |-----------------------------------------------------------------------------------------------|
-
-# |--------------------------| Function: DrawVehicle |--------------------------------------------|
-
-# Arguments: 		$a0: memory location of the upper-left corner of the vehicle
-#			$a1: length of the vehicle in pixels
-# Return values:	none
-
-DrawVehicle:
-add 	$t0, $a0, $zero 		# $t0 = $a0;
-lw 	$t1, vehicleColour		# $t1 = vehicleColour;
-add 	$t2, $zero, $zero 		# $t2 = 0;  // inner loop pixel counter
-add 	$t3, $zero, $zero 		# $t3 = 0;  // outer loop loop variable
-add 	$t4, $zero, $zero 		# $t4 = 0;  // increment to row number by address
-
-DrawVehicleMultiRow: 			# for ($t3 = 0; $t3 < 4; ++$t3) {
-beq 	$t3, 4, DrawVehicleMultiRowEnd	# 	breaks loop when $t3 == 4
-
-DrawVehicleRow:
-beq 	$t2, $a1, DrawVehicleRowEnd 	# 	while ($t2 != $a1) {
-sw 	$t1, 0($t0) 			# 		*($t0) = $t1;  // draw
-addi 	$t0, $t0, 4 			# 		$t0 += 4;  // increment pointer to display
-addi 	$t2, $t2, 1 			# 		++$t2;  // increment loop variable
-j	DrawVehicleRow			# 	}
-
-DrawVehicleRowEnd:
-
-addi 	$t4, $t4, 128 			# 	$t4 += 128;
-add 	$t0, $a0, $t4 			# 	$t0 = $a0 + $t4;  // next row
-add 	$t2, $zero, $zero 		# 	$t2 = 0;
-addi 	$t3, $t3, 1 			# 	increment $t3 in each iteration
-
-j DrawVehicleMultiRow			# }
-
-DrawVehicleMultiRowEnd:
-jr 	$ra
-
-# |-----------------------------------------------------------------------------------------------|
 
 # |-----------------------------| Function: DrawFrog |--------------------------------------------|
 
