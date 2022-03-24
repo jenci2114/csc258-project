@@ -87,7 +87,6 @@ j Main
 CheckKeyInput:
 lw 	$t0, keyboardAddress
 addi	$t0, $t0, 4			# Load key address to $t0
-sub 	$t1, $s1, $s0 			# Obtain relative position of frog and store into $t1
 
 lw 	$t2, 0($t0) 			# Store the ascii of the pressed key into $t2
 beq 	$t2, 0x77, RespondToW		# w is pressed
@@ -98,29 +97,31 @@ beq 	$t2, 0x64, RespondToD		# d is pressed
 j Main 					# not one of wasd, go back
 
 RespondToW:
-ble 	$t1, 112, Main 			# Frog is in top row, go to Main
-subi 	$s1, $s1, 512 			# Move frog up 1 row
+lw 	$t1, frogPosY 			# Store the y-pos of the frog into $t1
+beq 	$t1, 0, Main 			# Frog is in top row, go to Main
+subi 	$t1, $t1, 1 			# Move frog up 1 row
+sw 	$t1, frogPosY			# Save the move
 j 	Main
 
 RespondToA:
-li 	$t2, 512 			# $t2 = 512
-div 	$t1, $t2 			# Divide the relative location of the frog by 512
-mfhi	$t3				# $t3 = $t2 % 512
-beq 	$t3, 0, Main 			# Frog is on the left edge, go to Main
-subi 	$s1, $s1, 16 			# Move frog left 1 spot
+lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
+beq 	$t1, 0, Main 			# Frog is on the left edge, go to Main
+subi 	$t1, $t1, 1 			# Move frog left by 1
+sw 	$t1, frogPosX 			# Save the move
 j 	Main
 
 RespondToS:
-bge 	$t1, 3584, Main			# Frog is in bottom row, go to Main
-addi 	$s1, $s1, 512			# Move frow down 1 row
+lw 	$t1, frogPosY 			# Store the y-pos of the frog into $t1
+beq 	$t1, 7, Main 			# Frog is in bottom row, go to Main
+addi 	$t1, $t1, 1 			# Move frow down 1 row
+sw 	$t1, frogPosY 			# Save the move
 j 	Main
 
 RespondToD:
-li 	$t2, 512 			# $t2 = 512
-div 	$t1, $t2			# Divide the relative location of the frog by 512
-mfhi 	$t3 				# $t3 = $t2 % 512
-beq 	$t3, 112, Main			# Frog is on the right edge, go to Main
-addi 	$s1, $s1, 16			# Move frog right 1 spot
+lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
+beq 	$t1, 7, Main 			# Frog is on the right edge, go to Main
+addi 	$t1, $t1, 1 			# Move frog right by 1
+sw 	$t1, frogPosX 			# Save the move
 j 	Main
 
 # |--------------------------------| Function: InitMem |-----------------------------------------|
@@ -362,7 +363,6 @@ sw 	$t1, 8($t0) 			# Draw the right torso
 addi 	$t0, $t0, 128			# Increment the display pointer to next row
 addi 	$t2, $t2, 1 			# Update row number
 j	DrawFrogConditional
-
 
 # |-----------------------------------------------------------------------------------------------|
 
