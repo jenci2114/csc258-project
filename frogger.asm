@@ -65,9 +65,6 @@ la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
 li 	$a1, 0				# $a1 = 0
 jal 	InitMem				# InitMem for vehicleBotSpace
 
-
-
-
 Main:
 
 jal 	DrawBackground	
@@ -314,11 +311,24 @@ jr 	$ra
 
 # |-----------------------------| Function: DrawFrog |--------------------------------------------|
 
-# Arguments: 		$a0: memory location of the upper-left corner of the frog
+# Arguments: 		none
 # Return values:	none
 
 DrawFrog:
-add 	$t0, $a0, $zero 		# $t0 = $a0;
+lw 	$t0, displayAddress 	 	# Load displayAddress into $t0
+lw 	$t1, frogPosX			# Load x-pos of the frog into $t1
+lw 	$t2, frogPosY 			# Load y-pos of the frog into $t2
+
+li 	$t3, 16 			# $t3 = 16, x-pos to byte conversion
+mult 	$t1, $t3 			# $t4 = $t1 * 16
+mflo	$t4 				
+add 	$t0, $t0, $t4 			# Increment address with x-pos
+
+li 	$t3, 512 			# $t3 = 512, y-pos to byte conversion
+mult 	$t2, $t3 			# $t4 = $t2 * 512
+mflo 	$t4
+add 	$t0, $t0, $t4			# Increment address with y-pos
+
 lw 	$t1, frogColour			# $t1 = frogColour;
 add 	$t2, $zero, $zero 		# $t2 = 0;  // current row
 
