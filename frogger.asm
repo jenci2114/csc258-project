@@ -13,7 +13,7 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 3a
+# Milestone reached: 3
 # 
 # Additional features implemented:
 # - None
@@ -74,6 +74,9 @@ jal 	InitMem				# InitMem for vehicleBotSpace
 Main:
 jal 	DrawBackground	
 jal 	DrawFrog
+
+jal 	CheckWin 			# Check whether the player has won
+beq 	$v0, 1, GameOver 		# The player wins, game is over
 
 la 	$a0, vehicleTopSpace 		# Check collisions for top row vehicle
 li 	$a1, 1 				# Presence of vehicle is fatal
@@ -673,6 +676,23 @@ j 	FrogNotOutOfBound
 FrogOutOfBound:
 li 	$v0, 1 					# Return 1
 jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |---------------------------------| Function: CheckWin |----------------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	$v0: whether the player has won
+
+CheckWin:
+lw 	$t0, frogPosY 				# Store the y-pos of the frog in $t0
+beq 	$t0, 1, CheckWinSucceeds 		# Frog in on row 1, the player wins!
+li 	$v0, 0 					# Else the player does not yet wins
+jr 	$ra					# Return 0
+
+CheckWinSucceeds:
+li 	$v0, 1 					# Return 1
+jr 	$ra 
 
 # |-----------------------------------------------------------------------------------------------|
 
