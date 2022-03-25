@@ -76,8 +76,18 @@ Main:
 jal 	DrawBackground	
 jal 	DrawFrog
 
-jal 	CheckVehicleCollision
+la 	$a0, vehicleTopSpace 		# $a0 = vehicleTopSpace
+li 	$a1, 1 				# Presence of vehicle is fatal
+li 	$a2, 5 				# Top vehicle is on row 5
+jal 	CheckCollision
 beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
+
+la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
+li 	$a1, 1 				# Presence of vehicle is fatal
+li 	$a2, 6 				# Bottom vehicle is on row 6
+jal 	CheckCollision
+beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
+
 
 CheckKeyboardInput:
 lw 	$t0, keyboardAddress 		# Load keyboard address into $t0
@@ -564,56 +574,6 @@ jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
 
-# |-------------------------| Function: CheckVehicleCollision |-----------------------------------|
- 
-# Arguments: 		$a0: none
-# Return value: 	$v0: Whether there is collision
-
-CheckVehicleCollision:
-lw 	$t0, frogPosX 				# Load x-pos of frog to $t0
-lw 	$t1, frogPosY 				# Load y-pos of frog to $t0
-addi 	$t4, $t0, 12 				# $t4 = $t0 + 12, top-right byte of frog
-
-beq 	$t1, 5, CheckTopVehicleCollision 	# Row of frog is at top vehicle level
-beq 	$t1, 6, CheckBotVehicleCollision	# Row of frog is at bottom vehicle level
-j 	VehicleCollisionNotDetected 		# Elsewise no collision
-
-CheckTopVehicleCollision:
-la 	$t5, vehicleTopSpace 			# Store address of vehicleTopSpace to $t5
-
-add 	$t6, $t5, $t0				# $t6 is where the top-left byte of the frog is
-lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
-beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
-
-add 	$t6, $t5, $t4 				# $t6 is where the top-right byte of the frog is
-lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
-beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
-
-j 	VehicleCollisionNotDetected 		# Elsewise no collision
-
-CheckBotVehicleCollision:
-la 	$t5, vehicleBotSpace 			# Store address of vehicleBotSpace to $t5
-
-add 	$t6, $t5, $t0				# $t6 is where the top-left byte of the frog is
-lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
-beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
-
-add 	$t6, $t5, $t4 				# $t6 is where the top-right byte of the frog is
-lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
-beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
-
-j 	VehicleCollisionNotDetected 		# Elsewise no collision
-
-VehicleCollisionDetected:
-li 	$v0, 1 					# Return 1
-jr 	$ra
-
-VehicleCollisionNotDetected:
-li 	$v0, 0 					# Return 0
-jr 	$ra
-
-# |-----------------------------------------------------------------------------------------------|
-
 # |-----------------------------------| Function: Respawn |---------------------------------------|
  
 # Arguments: 		$a0: none
@@ -636,6 +596,38 @@ syscall
 
 # |-----------------------------------------------------------------------------------------------|
 
+# |-------------------------------| Function: CheckCollision |------------------------------------|
+ 
+# Arguments: 		$a0: Memory of object in which collision is checked
+# 			$a1: The value of the object that is considered a (killing) collision
+# 			$a2: The row in which the object is located (unit is frog-height)
+# Return value: 	$v0: Whether there is collision
+
+CheckCollision:
+lw 	$t0, frogPosY 				# Load y-pos of frog to $t0
+bne 	$t0, $a2, CollisionNotDetected 		# Not even in the same row
+
+lw 	$t0, frogPosX 				# Load x-pos of frog (left side) to $t0
+add 	$t1, $a0, $t0				# Address of frog w.r.t. object
+lw 	$t2, 0($t1) 				# Check content of this address
+beq 	$t2, $a1, CollisionDetected 		# There is a collision
+
+addi 	$t0, $t0, 12 				# Change $t0 to the right side of the frog
+add 	$t1, $a0, $t0				# Address of frog w.r.t. object
+lw 	$t2, 0($t1) 				# Check content of this address
+beq 	$t2, $a1, CollisionDetected 		# There is a collision
+
+j 	CollisionNotDetected 			# No collision for both left and right sides of the frog
+
+CollisionDetected:
+li 	$v0, 1 					# Collision
+jr 	$ra 					# Return 1
+
+CollisionNotDetected:
+li 	$v0, 0 					# No collision
+jr 	$ra					# Return 0
+
+# |-----------------------------------------------------------------------------------------------|
 
 
 
