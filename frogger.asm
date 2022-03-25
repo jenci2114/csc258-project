@@ -37,19 +37,23 @@ vehicleColour: 		.word 0x000000
 frogPosX: 		.word 0x3	# From left to right, 0-based indexing
 frogPosY: 		.word 0x7	# From top downwawrds, 0-based indexing
 
+frogStartPosX: 		.word 0x3
+frogStartPosY: 		.word 0x7
+
 logTopSpace: 		.space 512	# Top Log
 logBotSpace: 		.space 512 	# Bottom Log
 
 vehicleTopSpace: 	.space 512 	# Top Vehicle
 vehicleBotSpace: 	.space 512 	# Bottom Vehicle
 
-speedCountdown: 	.word 0x1 	# Speed of objects counting down based on refresh rate
+speedCountdown: 	.word 0x10 	# Speed of objects counting down based on refresh rate
+
+livesRemaining:		.word 0x3 	# Number of lives left, starting from 3
 	
 .text
 
 Init:
 lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
-addi 	$s1, $s0, 3632 			# Initialize frog position
 
 la 	$a0, logTopSpace 		# $a0 = logTopSpace
 li 	$a1, 0				# $a1 = 0
@@ -70,9 +74,10 @@ jal 	InitMem				# InitMem for vehicleBotSpace
 Main:
 
 jal 	DrawBackground	
+jal 	DrawFrog
 
-add	$a0, $s1, $zero			# Draw frog in start region
-jal 	DrawFrog 	
+jal 	CheckVehicleCollision
+beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
 
 CheckKeyboardInput:
 lw 	$t0, keyboardAddress 		# Load keyboard address into $t0
@@ -103,7 +108,7 @@ jal 	MoveObjectLeft 			# Move the top vehicle left
 la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
 jal 	MoveObjectRight 		# Move the bottom vehicle right
 
-addi	$t0, $zero, 1			# Reset speed countdown
+addi	$t0, $zero, 16			# Reset speed countdown
 sw 	$t0, speedCountdown 		# Save countdown	
 j Main
 
@@ -145,6 +150,13 @@ lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
 beq 	$t1, 7, Main 			# Frog is on the right edge, go to Main
 addi 	$t1, $t1, 1 			# Move frog right by 1
 sw 	$t1, frogPosX 			# Save the move
+j 	Main
+
+LifeLost:
+lw 	$t0, livesRemaining 		# Store the lives remaining in $t0
+subi 	$t0, $t0, 1 			# Lives remaining -1
+sw 	$t0, livesRemaining 		# Update lives remaining
+jal 	Respawn
 j 	Main
 
 
@@ -544,6 +556,91 @@ sw 	$t2, 384($t0) 				# fourth
 jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
+
+# |-------------------------| Function: CheckVehicleCollision |-----------------------------------|
+ 
+# Arguments: 		$a0: none
+# Return value: 	$v0: Whether there is collision
+
+CheckVehicleCollision:
+lw 	$t0, frogPosX 				# Load x-pos of frog to $t0
+lw 	$t1, frogPosY 				# Load y-pos of frog to $t0
+li 	$t2, 16 				# $t2 = 16, x-pos to byte conversion
+mult 	$t0, $t2 				# $t3 = $t0 * 16, top-left byte of frog
+mflo 	$t3
+addi 	$t4, $t3, 12 				# $t4 = $t3 + 12, top-right byte of frog
+
+beq 	$t1, 5, CheckTopVehicleCollision 	# Row of frog is at top vehicle level
+beq 	$t1, 6, CheckBotVehicleCollision	# Row of frog is at bottom vehicle level
+j 	VehicleCollisionNotDetected 		# Elsewise no collision
+
+CheckTopVehicleCollision:
+la 	$t5, vehicleTopSpace 			# Store address of vehicleTopSpace to $t5
+
+add 	$t6, $t5, $t3				# $t6 is where the top-left byte of the frog is
+lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
+beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
+
+add 	$t6, $t5, $t4 				# $t6 is where the top-right byte of the frog is
+lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
+beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
+
+j 	VehicleCollisionNotDetected 		# Elsewise no collision
+
+CheckBotVehicleCollision:
+la 	$t5, vehicleBotSpace 			# Store address of vehicleBotSpace to $t5
+
+add 	$t6, $t5, $t3				# $t6 is where the top-left byte of the frog is
+lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
+beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
+
+add 	$t6, $t5, $t4 				# $t6 is where the top-right byte of the frog is
+lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
+beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
+
+j 	VehicleCollisionNotDetected 		# Elsewise no collision
+
+VehicleCollisionDetected:
+li 	$v0, 1 					# Return 1
+jr 	$ra
+
+VehicleCollisionNotDetected:
+li 	$v0, 0 					# Return 0
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |-----------------------------------| Function: Respawn |---------------------------------------|
+ 
+# Arguments: 		$a0: none
+# Return value: 	$v0: none
+
+Respawn:
+lw 	$t0, livesRemaining 			# livesRemaining is expected to be updated
+beq 	$t0, 0, GameOver			# Game is over when no lives remain
+
+lw 	$t1, frogStartPosX 			# Load the starting x-pos of frog in $t1
+sw	$t1, frogPosX 				# Reset x-pos of frog
+lw 	$t2, frogStartPosY			# Load the starting y-pos of frog in $t2
+sw 	$t2, frogPosY 				# Reset y-pos of frog
+
+jr 	$ra
+
+GameOver:
+li $v0, 10
+syscall
+
+# |-----------------------------------------------------------------------------------------------|
+
+
+
+
+
+
+
+
+
+
 
 
 
