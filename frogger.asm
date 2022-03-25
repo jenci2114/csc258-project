@@ -13,7 +13,7 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 2
+# Milestone reached: 3a
 # 
 # Additional features implemented:
 # - None
@@ -72,20 +72,31 @@ li 	$a1, 0				# $a1 = 0
 jal 	InitMem				# InitMem for vehicleBotSpace
 
 Main:
-
 jal 	DrawBackground	
 jal 	DrawFrog
 
-la 	$a0, vehicleTopSpace 		# $a0 = vehicleTopSpace
+la 	$a0, vehicleTopSpace 		# Check collisions for top row vehicle
 li 	$a1, 1 				# Presence of vehicle is fatal
 li 	$a2, 5 				# Top vehicle is on row 5
 jal 	CheckCollision
 beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
 
-la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
+la 	$a0, vehicleBotSpace 		# Check collisions for bottom row vehicle
 li 	$a1, 1 				# Presence of vehicle is fatal
 li 	$a2, 6 				# Bottom vehicle is on row 6
 jal 	CheckCollision
+beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
+
+la 	$a0, logTopSpace 		# Check collisions for top row log
+li 	$a1, 0 				# No presence of log is fatal
+li 	$a2, 2 				# Top log is on row 2
+jal 	CheckCollision
+beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
+
+la 	$a0, logBotSpace 		# Check collisions for bottom row log
+li 	$a1, 0 				# No presence of log is fatal
+li 	$a2, 3 				# Bottom log is on row 3
+jal 	CheckCollision 
 beq 	$v0, 1, LifeLost 		# Lose a life when there is vehicle collision
 
 
@@ -176,9 +187,15 @@ LifeLost:
 lw 	$t0, livesRemaining 		# Store the lives remaining in $t0
 subi 	$t0, $t0, 1 			# Lives remaining -1
 sw 	$t0, livesRemaining 		# Update lives remaining
+beq 	$t0, 0, GameOver		# No more lives remaining, game is over
 jal 	Respawn
 j 	Main
 
+GameOver:
+jal 	DrawBackground	
+jal 	DrawFrog 			# Reflect where the frog is when game is over
+li $v0, 10
+syscall
 
 ###################################################################################################
 #                                      # Functions #                                              #
@@ -222,7 +239,6 @@ li 	$t0, 1 				# $t0 = 1
 j 	StoreMem
 
 StoreMemEnd:
-
 jr 	$ra
 
 
@@ -365,7 +381,6 @@ addi 	$t1, $t1, 4			# 	$t1 += 4;
 j 	DrawStartRegion			# }
 
 DrawStartRegionEnd:			# $t1 = 3584 at this point
-
 jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
@@ -581,7 +596,6 @@ jr 	$ra
 
 Respawn:
 lw 	$t0, livesRemaining 			# livesRemaining is expected to be updated
-beq 	$t0, 0, GameOver			# Game is over when no lives remain
 
 lw 	$t1, frogStartPosX 			# Load the starting x-pos of frog in $t1
 sw	$t1, frogPosX 				# Reset x-pos of frog
@@ -590,16 +604,12 @@ sw 	$t2, frogPosY 				# Reset y-pos of frog
 
 jr 	$ra
 
-GameOver:
-li $v0, 10
-syscall
-
 # |-----------------------------------------------------------------------------------------------|
 
 # |-------------------------------| Function: CheckCollision |------------------------------------|
  
 # Arguments: 		$a0: Memory of object in which collision is checked
-# 			$a1: The value of the object that is considered a (killing) collision
+# 			$a1: The value of the object that is considered a (fatal) collision
 # 			$a2: The row in which the object is located (unit is frog-height)
 # Return value: 	$v0: Whether there is collision
 
