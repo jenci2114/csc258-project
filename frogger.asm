@@ -131,6 +131,10 @@ jal 	MoveObjectRight 		# Move the bottom vehicle right
 
 addi	$t0, $zero, 16			# Reset speed countdown
 sw 	$t0, speedCountdown 		# Save countdown	
+
+jal 	MoveFrogWithLog	
+beq 	$v0, 1, LifeLost 		# If frog is moved out of bound, lose a life
+
 j Main
 
 CheckKeyInput:
@@ -636,6 +640,39 @@ jr 	$ra 					# Return 1
 CollisionNotDetected:
 li 	$v0, 0 					# No collision
 jr 	$ra					# Return 0
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |------------------------------| Function: MoveFrogWithLog |------------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	$v0: whether frog is moved out of bound
+
+MoveFrogWithLog:
+lw 	$t0, frogPosX 				# Load the x-pos of the frog into $t0
+lw 	$t1, frogPosY 				# Load the y-pos of the frog into $t1
+beq 	$t1, 2, MoveFrogLeftWithLog		# Frog on top log, move left
+beq 	$t1, 3, MoveFrogRightWithLog		# Frog on bottom log, move right
+
+FrogNotOutOfBound:
+li 	$v0, 0 					# Return 0
+jr 	$ra
+
+MoveFrogLeftWithLog:
+beq 	$t0, 0, FrogOutOfBound			# Check whether frog is on the left edge
+subi 	$t0, $t0, 4 				# Subtract frog x-pos by 4 (bytes)
+sw 	$t0, frogPosX 				# Update frog x-pos
+j 	FrogNotOutOfBound
+
+MoveFrogRightWithLog:
+beq 	$t0, 112, FrogOutOfBound 		# Check whether frog is on the right edge
+addi 	$t0, $t0, 4 				# Add frog x-pos by 4 (bytes)
+sw 	$t0, frogPosX 				# Update frog x-pos
+j 	FrogNotOutOfBound
+
+FrogOutOfBound:
+li 	$v0, 1 					# Return 1
+jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
 
