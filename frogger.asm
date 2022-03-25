@@ -34,10 +34,10 @@ waterColour:		.word 0x000044
 logColour: 		.word 0xcf6f50
 vehicleColour: 		.word 0x000000
 
-frogPosX: 		.word 0x3	# From left to right, 0-based indexing
-frogPosY: 		.word 0x7	# From top downwawrds, 0-based indexing
+frogPosX: 		.word 0x30	# From left to right, 0-based indexing, unit is in "bytes"
+frogPosY: 		.word 0x7	# From top downwawrds, 0-based indexing, unit is in "frogheights"
 
-frogStartPosX: 		.word 0x3
+frogStartPosX: 		.word 0x30
 frogStartPosY: 		.word 0x7
 
 logTopSpace: 		.space 512	# Top Log
@@ -133,8 +133,8 @@ j 	Main
 
 RespondToA:
 lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
-beq 	$t1, 0, Main 			# Frog is on the left edge, go to Main
-subi 	$t1, $t1, 1 			# Move frog left by 1
+ble 	$t1, 16, MoveToLeftEnd 		# Frog is near the left edge, move to the left edge
+subi 	$t1, $t1, 16 			# Move frog left by 16 bytes
 sw 	$t1, frogPosX 			# Save the move
 j 	Main
 
@@ -147,9 +147,19 @@ j 	Main
 
 RespondToD:
 lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
-beq 	$t1, 7, Main 			# Frog is on the right edge, go to Main
-addi 	$t1, $t1, 1 			# Move frog right by 1
+bge 	$t1, 96, MoveToRightEnd 	# Frog is near the right edge, move to the right edge
+addi 	$t1, $t1, 16 			# Move frog right by 16 bytes
 sw 	$t1, frogPosX 			# Save the move
+j 	Main
+
+MoveToLeftEnd:
+li 	$t1, 0 				# $t1 = 0, byte value of left edge
+sw 	$t1, frogPosX 			# Move frog to left edge
+j 	Main
+
+MoveToRightEnd:
+li 	$t1, 112 			# $t1 = 112, byte value of right edge
+sw 	$t1, frogPosX 			# Move frog to right edge
 j 	Main
 
 LifeLost:
@@ -360,11 +370,8 @@ DrawFrog:
 lw 	$t0, displayAddress 	 	# Load displayAddress into $t0
 lw 	$t1, frogPosX			# Load x-pos of the frog into $t1
 lw 	$t2, frogPosY 			# Load y-pos of the frog into $t2
-
-li 	$t3, 16 			# $t3 = 16, x-pos to byte conversion
-mult 	$t1, $t3 			# $t4 = $t1 * 16
-mflo	$t4 				
-add 	$t0, $t0, $t4 			# Increment address with x-pos
+			
+add 	$t0, $t0, $t1 			# Increment address with x-pos
 
 li 	$t3, 512 			# $t3 = 512, y-pos to byte conversion
 mult 	$t2, $t3 			# $t4 = $t2 * 512
@@ -565,10 +572,7 @@ jr 	$ra
 CheckVehicleCollision:
 lw 	$t0, frogPosX 				# Load x-pos of frog to $t0
 lw 	$t1, frogPosY 				# Load y-pos of frog to $t0
-li 	$t2, 16 				# $t2 = 16, x-pos to byte conversion
-mult 	$t0, $t2 				# $t3 = $t0 * 16, top-left byte of frog
-mflo 	$t3
-addi 	$t4, $t3, 12 				# $t4 = $t3 + 12, top-right byte of frog
+addi 	$t4, $t0, 12 				# $t4 = $t0 + 12, top-right byte of frog
 
 beq 	$t1, 5, CheckTopVehicleCollision 	# Row of frog is at top vehicle level
 beq 	$t1, 6, CheckBotVehicleCollision	# Row of frog is at bottom vehicle level
@@ -577,7 +581,7 @@ j 	VehicleCollisionNotDetected 		# Elsewise no collision
 CheckTopVehicleCollision:
 la 	$t5, vehicleTopSpace 			# Store address of vehicleTopSpace to $t5
 
-add 	$t6, $t5, $t3				# $t6 is where the top-left byte of the frog is
+add 	$t6, $t5, $t0				# $t6 is where the top-left byte of the frog is
 lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
 beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
 
@@ -590,7 +594,7 @@ j 	VehicleCollisionNotDetected 		# Elsewise no collision
 CheckBotVehicleCollision:
 la 	$t5, vehicleBotSpace 			# Store address of vehicleBotSpace to $t5
 
-add 	$t6, $t5, $t3				# $t6 is where the top-left byte of the frog is
+add 	$t6, $t5, $t0				# $t6 is where the top-left byte of the frog is
 lw 	$t7, 0($t6)				# Check whether a vehicle is present at $t6 location
 beq 	$t7, 1, VehicleCollisionDetected	# If so, there is a collision
 
