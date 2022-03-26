@@ -24,10 +24,11 @@
 displayAddress: 	.word 0x10008000
 keyboardAddress: 	.word 0xffff0000
 
-frogColour: 		.word 0x69db41
+frogColour: 		.word 0xffff54
 
 safeRegionColour: 	.word 0x8b1ad6
-goalRegionColour: 	.word 0x4ea333
+goalRegionColour: 	.word 0x69db41
+topRegionColour: 	.word 0xeb5628
 roadColour: 		.word 0x808080
 waterColour:		.word 0x000044
 
@@ -77,6 +78,7 @@ jal 	DrawFrog
 
 jal 	CheckWin 			# Check whether the player has won
 beq 	$v0, 1, GameOver 		# The player wins, game is over
+beq 	$v0, -1, LifeLost 		# The player loses a life
 
 la 	$a0, vehicleTopSpace 		# Check collisions for top row vehicle
 li 	$a1, 1 				# Presence of vehicle is fatal
@@ -259,16 +261,58 @@ jr 	$ra
 DrawBackground:
 lw 	$t0, displayAddress 		# $t0 = displayAddress;
 li 	$t1, 0 				# $t1 = 0;
-lw 	$t2, goalRegionColour		# $t2 = goalRegionColour;
+lw 	$t2, topRegionColour		# $t2 = topRegionColour;
 
-DrawGoalRegion:
-beq 	$t1, 1024, DrawGoalRegionEnd 	# while ($t1 != 1024) {
+DrawTopRegion:
+beq 	$t1, 512, DrawTopRegionEnd 	# while ($t1 != 512) {
 add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
 sw 	$t2, 0($t3)			# 	*($t3) = $t2;
 addi 	$t1, $t1, 4			# 	$t1 += 4;
-j DrawGoalRegion			# }
+j DrawTopRegion				# }
 
-DrawGoalRegionEnd:			# $t1 == 512 at this point
+DrawTopRegionEnd:			# $t1 == 512 at this point
+
+DrawTopLeftRegion:
+beq 	$t1, 560, DrawTopLeftRegionEnd 	# while ($t1 != 544) {
+add 	$t3, $t0, $t1 			# $t3 is destination location
+sw 	$t2, 0($t3) 			# Fill row 1
+sw 	$t2, 128($t3) 			# row 2
+sw 	$t2, 256($t3) 			# 3
+sw 	$t2, 384($t3) 			# 4
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+j 	DrawTopLeftRegion
+
+DrawTopLeftRegionEnd:
+
+lw 	$t2, goalRegionColour 		# Set $t2 to goal region colour
+
+DrawGoalRegion:
+beq 	$t1, 592, DrawGoalRegionEnd 	# while ($t1 != 592) {
+add 	$t3, $t0, $t1 			# $t3 is destination location
+sw 	$t2, 0($t3) 			# Fill row 1
+sw 	$t2, 128($t3) 			# row 2
+sw 	$t2, 256($t3) 			# 3
+sw 	$t2, 384($t3) 			# 4
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+j 	DrawGoalRegion
+
+DrawGoalRegionEnd:
+
+lw 	$t2, topRegionColour 		# Set $t2 to top region colour
+
+DrawTopRightRegion:
+beq 	$t1, 640, DrawTopRightRegionEnd # while ($t1 != 640) {
+add 	$t3, $t0, $t1 			# $t3 is destination location
+sw 	$t2, 0($t3) 			# Fill row 1
+sw 	$t2, 128($t3) 			# row 2
+sw 	$t2, 256($t3) 			# 3
+sw 	$t2, 384($t3) 			# 4
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+j 	DrawTopRightRegion
+
+DrawTopRightRegionEnd:
+
+li 	$t1, 1024 			# Set $t1 to the correct location (row 2)
 
 lw 	$t2, waterColour		# $t2 = waterColour;
 la 	$t4, logTopSpace 		# $t4 = adddress of logTopSpace
@@ -682,17 +726,25 @@ jr 	$ra
 # |---------------------------------| Function: CheckWin |----------------------------------------|
  
 # Arguments: 		none
-# Return value: 	$v0: whether the player has won
+# Return value: 	$v0: 1 if player won, 0 if player did not win, -1 if player lost
 
 CheckWin:
 lw 	$t0, frogPosY 				# Store the y-pos of the frog in $t0
-beq 	$t0, 1, CheckWinSucceeds 		# Frog in on row 1, the player wins!
-li 	$v0, 0 					# Else the player does not yet wins
-jr 	$ra					# Return 0
+lw 	$t1, frogPosX 				# Store the x-pos of the frog in $t1
+bne 	$t0, 1, CheckWinFails 			# Frog not on row 1, did not win
+blt 	$t1, 48, CheckWinLoses 			# Frog is to the left of goal region, which is a fatal region
+bgt 	$t1, 64, CheckWinLoses 			# Frog is to the right of goal region, which is a fatal region
 
-CheckWinSucceeds:
-li 	$v0, 1 					# Return 1
+li 	$v0, 1					# Else the player wins!
+jr 	$ra					# Return 1
+
+CheckWinFails:
+li 	$v0, 0 					# Return 0
 jr 	$ra 
+
+CheckWinLoses:
+li 	$v0, -1 				# Return -1
+jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
 
