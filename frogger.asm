@@ -14,13 +14,14 @@
 # - Base address for display: 0x10008000 ($gp)
 #
 # Milestone reached: 4
-# - Easy features implemented: 2
+# - Easy features implemented: 3
 # - Hard features implemented: 1
 # 
 # Additional features implemented:
 # - Hard: Make a second level that starts after the player completes the first level
 # - Easy: Display the number of lives remaining
 # - Easy: Display a death/respawn animation each time the player loses a frog
+# - Easy: Have objects in different rows move at different speeds
 #
 ###################################################################################################
 
@@ -52,7 +53,14 @@ logBotSpace: 		.space 512 	# Bottom Log
 vehicleTopSpace: 	.space 512 	# Top Vehicle
 vehicleBotSpace: 	.space 512 	# Bottom Vehicle
 
-speedCountdown: 	.word 0x10 	# Speed of objects counting down based on refresh rate
+vehicleBotSpeedInit: 	.word 0x10  	# Speed is number of refresh cycles per update
+vehicleBotSpeed:	.word 0x10 	# Lower value: faster
+vehicleTopSpeedInit: 	.word 0xf
+vehicleTopSpeed: 	.word 0xf
+logBotSpeedInit:	.word 0xd
+logBotSpeed:		.word 0xd
+logTopSpeedInit:	.word 0xc
+logTopSpeed: 		.word 0xc
 
 livesRemaining:		.word 0x3 	# Number of lives left, starting from 3
 lifeColour: 		.word 0xa2eddf 	# Colour of life heart
@@ -127,32 +135,9 @@ li 	$v0, 32 			# Sleep
 li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
 syscall
 
-lw	$t0, speedCountdown 		# $t0 = speedCountdown
-beq 	$t0, 0, UpdateObjects 		# If countdown finishes, update positions of objects
-subi 	$t0, $t0, 1			# Decrement countdown
-sw 	$t0, speedCountdown 		# Save countdown
-j Main
-
-UpdateObjects:
-la 	$a0, logTopSpace 		# $a0 = logTopSpace
-jal 	MoveObjectLeft 			# Move the top log left
-
-la	$a0, logBotSpace 		# $a0 = logBotSpace
-jal 	MoveObjectRight			# Move the bottom log right
-
-la 	$a0, vehicleTopSpace 		# $a0 = vehicleTopSpace
-jal 	MoveObjectLeft 			# Move the top vehicle left
-
-la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
-jal 	MoveObjectRight 		# Move the bottom vehicle right
-
-addi	$t0, $zero, 16			# Reset speed countdown
-sw 	$t0, speedCountdown 		# Save countdown	
-
-jal 	MoveFrogWithLog	
-beq 	$v0, 1, LifeLost 		# If frog is moved out of bound, lose a life
-
-j Main
+jal 	UpdateObjects 			# Update objects
+beq 	$v0, 1, LifeLost		# If frog is moved out of bound, lose a life
+j 	Main
 
 CheckKeyInput:
 lw 	$t0, keyboardAddress
@@ -301,6 +286,7 @@ lw 	$a0, topRegionColour
 jal 	DrawStatusBar 			# Ensure display is updated
 li 	$v0, 10				# Terminate program
 syscall
+
 
 ###################################################################################################
 #                                      # Functions #                                              #
@@ -653,6 +639,115 @@ jr 	$ra
 # |-----------------------------------------------------------------------------------------------|
 
 
+# |-----------------------------| Function: UpdateObjects |---------------------------------------|
+
+# Arguments: 		none
+# Return values:	$v0: whether frog has moved out of bound
+
+UpdateObjects:
+
+UpdateBotVehicle:
+lw 	$t0, vehicleBotSpeed 		# Load bottom vehicle speed to $t0
+bgt 	$t0, 0, UpdateBotVehicleEnd 	# Timer not done, don't update
+
+addi 	$sp, $sp, -4 			# Move stack pointer
+sw 	$ra, 0($sp) 			# Push $ra to stack
+la 	$a0, vehicleBotSpace 		# Move bottom vehicle right
+jal 	MoveObjectRight			# Function call
+lw 	$ra, 0($sp) 			# Pop $ra from stack
+addi 	$sp, $sp, 4 			# Move stack pointer
+
+lw 	$t0, vehicleBotSpeedInit 	# Load initial bottom vehicle speed to $t0
+sw 	$t0, vehicleBotSpeed 		# Save to current vehicle speed
+
+UpdateBotVehicleEnd:
+lw 	$t0, vehicleBotSpeed 		# Load bottom vehicle speed to $t0
+addi 	$t0, $t0, -1 			# Decrement it
+sw 	$t0, vehicleBotSpeed 		# Save new speed
+
+UpdateTopVehicle:
+lw 	$t0, vehicleTopSpeed 		# Load top vehicle speed to $t0
+bgt 	$t0, 0, UpdateTopVehicleEnd 	# Timer not done, don't update
+
+addi 	$sp, $sp, -4 			# Move stack pointer
+sw 	$ra, 0($sp) 			# Push $ra to stack
+la 	$a0, vehicleTopSpace 		# Move top vehicle left
+jal 	MoveObjectLeft			# Function call
+lw 	$ra, 0($sp) 			# Pop $ra from stack
+addi 	$sp, $sp, 4 			# Move stack pointer
+
+lw 	$t0, vehicleTopSpeedInit 	# Load initial top vehicle speed to $t0
+sw 	$t0, vehicleTopSpeed 		# Save to current vehicle speed
+
+UpdateTopVehicleEnd:
+lw 	$t0, vehicleTopSpeed 		# Load top vehicle speed to $t0
+addi 	$t0, $t0, -1 			# Decrement it
+sw 	$t0, vehicleTopSpeed 		# Save new speed
+
+UpdateBotLog:
+lw 	$t0, logBotSpeed 		# Load bottom log speed to $t0
+bgt 	$t0, 0, UpdateBotLogEnd 	# Timer not done, don't update
+
+addi 	$sp, $sp, -4 			# Move stack pointer
+sw 	$ra, 0($sp) 			# Push $ra to stack
+la 	$a0, logBotSpace 		# Move bottom log right
+jal 	MoveObjectRight			# Function call
+lw 	$ra, 0($sp) 			# Pop $ra from stack
+addi 	$sp, $sp, 4 			# Move stack pointer
+
+lw 	$t0, logBotSpeedInit 		# Load initial bottom log speed to $t0
+sw 	$t0, logBotSpeed 		# Save to current log speed
+
+addi 	$sp, $sp, -4 			# Move stack pointer
+sw 	$ra, 0($sp) 			# Push $ra to stack
+li 	$a0, 3 				# Specific row is 3
+jal 	MoveFrogWithLog
+lw 	$ra, 0($sp) 			# Pop $ra from stack
+addi 	$sp, $sp, 4 			# Move stack pointer
+beq 	$v0, 1, UpdateFrogOutOfBound	# Frog moved out of bound
+
+UpdateBotLogEnd:
+lw 	$t0, logBotSpeed 		# Load bottom log speed to $t0
+addi 	$t0, $t0, -1 			# Decrement it
+sw 	$t0, logBotSpeed 		# Save new speed
+
+UpdateTopLog:
+lw 	$t0, logTopSpeed 		# Load top log speed to $t0
+bgt 	$t0, 0, UpdateTopLogEnd 	# Timer not done, don't update
+
+addi 	$sp, $sp, -4 			# Move stack pointer
+sw 	$ra, 0($sp) 			# Push $ra to stack
+la 	$a0, logTopSpace 		# Move top log left
+jal 	MoveObjectLeft			# Function call
+lw 	$ra, 0($sp) 			# Pop $ra from stack
+addi 	$sp, $sp, 4 			# Move stack pointer
+
+lw 	$t0, logTopSpeedInit 		# Load initial top log speed to $t0
+sw 	$t0, logTopSpeed 		# Save to current log speed
+
+addi 	$sp, $sp, -4 			# Move stack pointer
+sw 	$ra, 0($sp) 			# Push $ra to stack
+li 	$a0, 2 				# Specific row is 2
+jal 	MoveFrogWithLog
+lw 	$ra, 0($sp) 			# Pop $ra from stack
+addi 	$sp, $sp, 4 			# Move stack pointer
+beq 	$v0, 1, UpdateFrogOutOfBound	# Frog moved out of bound
+
+UpdateTopLogEnd:
+lw 	$t0, logTopSpeed 		# Load top log speed to $t0
+addi 	$t0, $t0, -1 			# Decrement it
+sw 	$t0, logTopSpeed 		# Save new speed
+
+li 	$v0, 0 				# Return 0
+jr 	$ra
+
+UpdateFrogOutOfBound:
+li 	$v0, 1 				# Return 1
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+
 # |-----------------------------| Function: DrawFrog |--------------------------------------------|
 
 # Arguments: 		$a0: colour of frog to be drawn
@@ -908,12 +1003,13 @@ jr 	$ra					# Return 0
 
 # |------------------------------| Function: MoveFrogWithLog |------------------------------------|
  
-# Arguments: 		none
+# Arguments: 		$a0: specific row number, frog only moves when in this row
 # Return value: 	$v0: whether frog is moved out of bound
 
 MoveFrogWithLog:
 lw 	$t0, frogPosX 				# Load the x-pos of the frog into $t0
 lw 	$t1, frogPosY 				# Load the y-pos of the frog into $t1
+bne 	$a0, $t1, FrogNotOutOfBound		# Frog not on specific row, don't move
 beq 	$t1, 2, MoveFrogLeftWithLog		# Frog on top log, move left
 beq 	$t1, 3, MoveFrogRightWithLog		# Frog on bottom log, move right
 
