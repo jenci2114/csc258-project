@@ -16,7 +16,7 @@
 # Milestone reached: 3
 # 
 # Additional features implemented:
-# - None
+# - Display the number of lives remaining
 #
 ###################################################################################################
 
@@ -32,7 +32,7 @@ topRegionColour: 	.word 0xeb5628
 roadColour: 		.word 0x808080
 waterColour:		.word 0x000044
 
-logColour: 		.word 0xcf6f50
+logColour: 		.word 0xba8c63
 vehicleColour: 		.word 0x000000
 
 frogPosX: 		.word 0x30	# From left to right, 0-based indexing, unit is in "bytes"
@@ -50,10 +50,14 @@ vehicleBotSpace: 	.space 512 	# Bottom Vehicle
 speedCountdown: 	.word 0x10 	# Speed of objects counting down based on refresh rate
 
 livesRemaining:		.word 0x3 	# Number of lives left, starting from 3
+lifeColour: 		.word 0xa2eddf 	# Colour of life heart
+lifeLostColour: 	.word 0x282828 	# Colour of life heart when life is lost
 	
 .text
 
 Init:
+jal 	DrawStatusBar 			# Draw status bar
+
 lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
 
 la 	$a0, logTopSpace 		# $a0 = logTopSpace
@@ -198,11 +202,13 @@ subi 	$t0, $t0, 1 			# Lives remaining -1
 sw 	$t0, livesRemaining 		# Update lives remaining
 beq 	$t0, 0, GameOver		# No more lives remaining, game is over
 jal 	Respawn
+jal 	DrawStatusBar
 j 	Main
 
 GameOver:
 jal 	DrawBackground	
 jal 	DrawFrog 			# Reflect where the frog is when game is over
+jal 	DrawStatusBar
 li $v0, 10
 syscall
 
@@ -260,17 +266,8 @@ jr 	$ra
 
 DrawBackground:
 lw 	$t0, displayAddress 		# $t0 = displayAddress;
-li 	$t1, 0 				# $t1 = 0;
+li 	$t1, 512 			# $t1 = 512;
 lw 	$t2, topRegionColour		# $t2 = topRegionColour;
-
-DrawTopRegion:
-beq 	$t1, 512, DrawTopRegionEnd 	# while ($t1 != 512) {
-add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
-sw 	$t2, 0($t3)			# 	*($t3) = $t2;
-addi 	$t1, $t1, 4			# 	$t1 += 4;
-j DrawTopRegion				# }
-
-DrawTopRegionEnd:			# $t1 == 512 at this point
 
 DrawTopLeftRegion:
 beq 	$t1, 560, DrawTopLeftRegionEnd 	# while ($t1 != 544) {
@@ -433,6 +430,71 @@ j 	DrawStartRegion			# }
 
 DrawStartRegionEnd:			# $t1 = 3584 at this point
 jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+
+# |----------------------------| Function: DrawStatusBar |----------------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	none
+
+DrawStatusBar:
+lw 	$t0, displayAddress 		# $t0 = displayAddress;
+li 	$t1, 0 				# $t1 = 512;
+lw 	$t2, topRegionColour		# $t2 = topRegionColour;
+
+DrawTopRegion:
+beq 	$t1, 512, DrawTopRegionEnd 	# while ($t1 != 512) {
+add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
+sw 	$t2, 0($t3)			# 	*($t3) = $t2;
+addi 	$t1, $t1, 4			# 	$t1 += 4;
+j DrawTopRegion				# }
+
+DrawTopRegionEnd:			# $t1 == 512 at this point
+
+lw 	$t2, lifeColour			# $t2 = lifeColour
+lw 	$t3, lifeLostColour 		# $t3 = lifeLostColour
+lw 	$t4, livesRemaining 		# Store the number of lives remaining, available life accumulator
+lw 	$t0, displayAddress 		# Explicitly initialize $t0 to displayAddress
+li 	$t6, 0 				# Life accumulator, draw life
+
+DrawLife:
+beq 	$t6, 3, DrawLifeEnd		# Already drew all lives
+sw 	$t3, 0($t0)			# Draw border
+sw 	$t3, 4($t0) 
+sw 	$t3, 8($t0)
+sw 	$t3, 12($t0)
+sw 	$t3, 128($t0)
+sw 	$t3, 140($t0)
+sw 	$t3, 256($t0)
+sw 	$t3, 268($t0)
+sw 	$t3, 384($t0)
+sw 	$t3, 388($t0)
+sw 	$t3, 392($t0)
+sw 	$t3, 396($t0)
+
+bgt 	$t4, 0, DrawRemainingLife 	# If there is life remaining, fill heart with colour
+add 	$t5, $t3, $zero 		# Else set colour to grey
+j 	DrawLifeInterior
+
+DrawRemainingLife:
+add 	$t5, $t2, $zero 		# Set colour to red
+subi 	$t4, $t4, 1 			# Deduct available life accumulator by 1
+
+DrawLifeInterior:
+sw 	$t5, 132($t0) 			# Draw life interior
+sw 	$t5, 136($t0)
+sw 	$t5, 260($t0)
+sw 	$t5, 264($t0)
+
+addi 	$t0, $t0, 16 			# Increment location to 4 pixels after
+addi 	$t6, $t6, 1 			# Increment life accumulator
+j 	DrawLife 			# Loop back
+
+DrawLifeEnd:
+jr 	$ra
+
 
 # |-----------------------------------------------------------------------------------------------|
 
