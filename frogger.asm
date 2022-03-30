@@ -13,13 +13,14 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 3
-# - Easy features implemented: 1
+# Milestone reached: 4
+# - Easy features implemented: 2
 # - Hard features implemented: 1
 # 
 # Additional features implemented:
 # - Hard: Make a second level that starts after the player completes the first level
 # - Easy: Display the number of lives remaining
+# - Easy: Display a death/respawn animation each time the player loses a frog
 #
 ###################################################################################################
 
@@ -28,6 +29,7 @@ displayAddress: 	.word 0x10008000
 keyboardAddress: 	.word 0xffff0000
 
 frogColour: 		.word 0xffff54
+frogDeathColour: 	.word 0xffc0cb
 
 safeRegionColour: 	.word 0x8b1ad6
 goalRegionColour: 	.word 0x69db41
@@ -82,6 +84,8 @@ jal 	InitMem				# InitMem for vehicleBotSpace
 
 Main:
 jal 	DrawBackground	
+
+lw 	$a0, frogColour 		# Draw frog using normal frog colour
 jal 	DrawFrog
 
 jal 	CheckWin 			# Check whether the player has won
@@ -201,6 +205,20 @@ sw 	$t1, frogPosX 			# Move frog to right edge
 j 	Main
 
 LifeLost:
+lw 	$a0, frogColour 		# Draw frog with normal colour
+jal 	DrawFrog
+li 	$v0, 32 			# Sleep
+li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
+syscall
+
+lw 	$a0, frogDeathColour 		# Draw status bar with frogDeathColour
+jal 	DrawStatusBar
+lw 	$a0, frogDeathColour		# Draw frog with frogDeathColour
+jal 	DrawFrog
+li 	$v0, 32 			# Sleep
+li 	$a0, 1000 			# Sleep for 1s
+syscall
+
 lw 	$t0, livesRemaining 		# Store the lives remaining in $t0
 subi 	$t0, $t0, 1 			# Lives remaining -1
 sw 	$t0, livesRemaining 		# Update lives remaining
@@ -236,6 +254,7 @@ j Init 					# Restart
 
 GameOver:
 jal 	DrawBackground	
+lw 	$a0, frogDeathColour 		# Draw frog with frogDeathColour
 jal 	DrawFrog 			# Reflect where the frog is when game is over
 lw 	$a0, topRegionColour 		# Draw status bar with top region colour
 jal 	DrawStatusBar
@@ -636,7 +655,7 @@ jr 	$ra
 
 # |-----------------------------| Function: DrawFrog |--------------------------------------------|
 
-# Arguments: 		none
+# Arguments: 		$a0: colour of frog to be drawn
 # Return values:	none
 
 DrawFrog:
@@ -651,7 +670,7 @@ mult 	$t2, $t3 			# $t4 = $t2 * 512
 mflo 	$t4
 add 	$t0, $t0, $t4			# Increment address with y-pos
 
-lw 	$t1, frogColour			# $t1 = frogColour;
+add 	$t1, $a0, $zero			# $t1 = colour of frog;
 add 	$t2, $zero, $zero 		# $t2 = 0;  // current row
 
 DrawFrogConditional:
