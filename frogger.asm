@@ -14,7 +14,7 @@
 # - Base address for display: 0x10008000 ($gp)
 #
 # Milestone reached: 4
-# - Easy features implemented: 3
+# - Easy features implemented: 4
 # - Hard features implemented: 1
 # 
 # Additional features implemented:
@@ -22,6 +22,7 @@
 # - Easy: Display the number of lives remaining
 # - Easy: Display a death/respawn animation each time the player loses a frog
 # - Easy: Have objects in different rows move at different speeds
+# - Easy: Dynamic increase in difficulty as game progresses
 #
 ###################################################################################################
 
@@ -229,6 +230,8 @@ jal 	DrawStatusBar
 li 	$v0, 32 			# Sleep
 li 	$a0, 1000 			# Sleep for 1s
 syscall
+
+jal 	IncreaseSpeeds 			# Increase speeds of objects to level 2 speed
 
 lw 	$t0, level 			# Store level in $t0
 addi 	$t0, $t0, 1 			# Increment level
@@ -1061,7 +1064,24 @@ jr 	$ra
 # |-----------------------------------------------------------------------------------------------|
 
 
+# |-------------------------------| Function: IncreaseSpeeds |------------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	none
 
+IncreaseSpeeds:
+li 	$t0, 8 				# Save bottom vehicle speed to 8
+sw 	$t0, vehicleBotSpeedInit
+li 	$t0, 7 				# Save top vehicle speed to 7
+sw 	$t0, vehicleTopSpeedInit
+li 	$t0, 5 				# Save bottom log speed to 5
+sw 	$t0, logBotSpeedInit
+li 	$t0, 4 				# Save top log speed to 4
+sw 	$t0, logTopSpeedInit
+
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
 
 
 
