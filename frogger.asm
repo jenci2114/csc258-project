@@ -14,9 +14,12 @@
 # - Base address for display: 0x10008000 ($gp)
 #
 # Milestone reached: 3
+# - Easy features implemented: 1
+# - Hard features implemented: 1
 # 
 # Additional features implemented:
-# - Display the number of lives remaining
+# - Hard: Make a second level that starts after the player completes the first level
+# - Easy: Display the number of lives remaining
 #
 ###################################################################################################
 
