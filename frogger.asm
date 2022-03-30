@@ -52,13 +52,14 @@ speedCountdown: 	.word 0x10 	# Speed of objects counting down based on refresh r
 livesRemaining:		.word 0x3 	# Number of lives left, starting from 3
 lifeColour: 		.word 0xa2eddf 	# Colour of life heart
 lifeLostColour: 	.word 0x282828 	# Colour of life heart when life is lost
+
+level: 			.word 0x1 	# Start from level 1 initially
 	
 .text
 
 Init:
+lw 	$a0, topRegionColour 		# Draw status bar with top region colour
 jal 	DrawStatusBar 			# Draw status bar
-
-lw 	$s0, displayAddress 		# Set $s0 to hold displayAddress
 
 la 	$a0, logTopSpace 		# $a0 = logTopSpace
 li 	$a1, 0				# $a1 = 0
@@ -81,7 +82,7 @@ jal 	DrawBackground
 jal 	DrawFrog
 
 jal 	CheckWin 			# Check whether the player has won
-beq 	$v0, 1, GameOver 		# The player wins, game is over
+beq 	$v0, 1, LevelComplete		# Win, level is cleared
 beq 	$v0, -1, LifeLost 		# The player loses a life
 
 la 	$a0, vehicleTopSpace 		# Check collisions for top row vehicle
@@ -202,14 +203,81 @@ subi 	$t0, $t0, 1 			# Lives remaining -1
 sw 	$t0, livesRemaining 		# Update lives remaining
 beq 	$t0, 0, GameOver		# No more lives remaining, game is over
 jal 	Respawn
+
+lw 	$a0, topRegionColour		# Draw status bar with top region colour
 jal 	DrawStatusBar
 j 	Main
+
+LevelComplete:
+lw 	$t0, level 			# Store level in $t0
+beq 	$t0, 2, GameOverWin		# If passed level 2, win
+
+lw 	$a0, topRegionColour
+jal 	DrawStatusBar 			# Just to refresh the screen
+li 	$v0, 32 			# Sleep
+li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
+syscall
+lw 	$a0, lifeColour			# Draw status bar with life colour
+jal 	DrawStatusBar
+
+li 	$v0, 32 			# Sleep
+li 	$a0, 1000 			# Sleep for 1s
+syscall
+
+lw 	$t0, level 			# Store level in $t0
+addi 	$t0, $t0, 1 			# Increment level
+sw 	$t0, level 			# Save new level
+jal	Respawn
+
+j Init 					# Restart
 
 GameOver:
 jal 	DrawBackground	
 jal 	DrawFrog 			# Reflect where the frog is when game is over
+lw 	$a0, topRegionColour 		# Draw status bar with top region colour
 jal 	DrawStatusBar
-li $v0, 10
+li 	$v0, 32 			# Sleep
+li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
+syscall
+lw 	$a0, topRegionColour 		
+jal 	DrawStatusBar 			# Ensure display is updated
+li 	$v0, 10 			# Terminate program
+syscall
+
+GameOverWin:
+li 	$t0, 3				# Move on to level 3, which is win state
+sw 	$t0, level 			# Save level
+
+lw 	$a0, topRegionColour
+jal 	DrawStatusBar 			# Just to refresh the screen
+li 	$v0, 32 			# Sleep
+li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
+syscall
+lw 	$a0, lifeColour			# Draw status bar with life colour
+jal 	DrawStatusBar
+
+li 	$v0, 32 			# Sleep
+li 	$a0, 1000 			# Sleep for 1s
+syscall
+
+lw 	$t0, goalRegionColour 		# Set entire screen to goal region colour
+lw 	$t1, displayAddress 		# Initialize $t1 to displayAddress
+li 	$t2, 0 				# Initialize $t2 to 0
+
+DrawWinState:
+beq 	$t2, 4096, DrawWinStateEnd
+add 	$t3, $t1, $t2 			# Set $t3 to current pixel
+sw 	$t0, 0($t3) 			# Draw current pixel
+addi 	$t2, $t2, 4 			# Increment $t2
+j DrawWinState
+
+DrawWinStateEnd:
+li 	$v0, 32 			# Sleep
+li 	$a0, 16 			# Sleep for 16 ms = 1/60 s
+syscall
+lw 	$a0, topRegionColour
+jal 	DrawStatusBar 			# Ensure display is updated
+li 	$v0, 10				# Terminate program
 syscall
 
 ###################################################################################################
@@ -436,18 +504,17 @@ jr 	$ra
 
 # |----------------------------| Function: DrawStatusBar |----------------------------------------|
  
-# Arguments: 		none
+# Arguments: 		$a0: background colour for status bar
 # Return value: 	none
 
 DrawStatusBar:
 lw 	$t0, displayAddress 		# $t0 = displayAddress;
-li 	$t1, 0 				# $t1 = 512;
-lw 	$t2, topRegionColour		# $t2 = topRegionColour;
+li 	$t1, 0 				# $t1 = ;
 
 DrawTopRegion:
 beq 	$t1, 512, DrawTopRegionEnd 	# while ($t1 != 512) {
 add 	$t3, $t0, $t1			#	$t3 = $t0 + $t1;	
-sw 	$t2, 0($t3)			# 	*($t3) = $t2;
+sw 	$a0, 0($t3)			# 	fill colour
 addi 	$t1, $t1, 4			# 	$t1 += 4;
 j DrawTopRegion				# }
 
@@ -493,6 +560,71 @@ addi 	$t6, $t6, 1 			# Increment life accumulator
 j 	DrawLife 			# Loop back
 
 DrawLifeEnd:
+
+lw 	$t3, level 			# $t3 stores current level
+beq 	$t3, 3, DrawLevelEnd 		# When game completes, do not draw level
+
+lw 	$t0, displayAddress 		# Load display address to $t0
+addi 	$t0, $t0, 64 			# Increment it to the 5th block
+lw 	$t1, frogColour 		# Draw level with frog colour
+li 	$t2, 0 			 	# Column accumulator
+
+DrawLevelColumn:
+beq 	$t2, 0, DrawLevelFullColumn 	# Line in L
+beq 	$t2, 1, DrawLevelBottomPixel 	# _ in L
+beq 	$t2, 2, DrawLevelBottomPixel 	# _ in L
+beq 	$t2, 3, DrawLevelEmpty
+beq 	$t2, 4, DrawLevelNoBottomPixel 	# \ in V
+beq 	$t2, 5, DrawLevelBottomPixel 	# . in V
+beq 	$t2, 6, DrawLevelNoBottomPixel 	# / in V
+beq 	$t2, 7, DrawLevelEmpty
+beq 	$t2, 8, DrawLevelEmpty
+beq 	$t2, 9, DrawLevelTopBottomPixel # : in I
+beq 	$t2, 10, DrawLevelFullColumn 	# | in I
+beq 	$t2, 11, DrawLevelTopBottomPixel# : in I
+
+beq 	$t3, 1, DrawLevelEnd 		# Only draw I on level 1
+
+beq 	$t2, 12, DrawLevelFullColumn 	# | in II
+beq 	$t2, 13, DrawLevelTopBottomPixel# : in II
+j 	DrawLevelEnd 			# Finishes drawing level II
+
+DrawLevelFullColumn:
+sw 	$t1, 0($t0) 			# Draw full column
+sw 	$t1, 128($t0)
+sw 	$t1, 256($t0)
+sw 	$t1, 384($t0)
+addi 	$t2, $t2, 1			# Increment column accumulator
+addi 	$t0, $t0, 4 			# Increment location by 1 pixel
+j 	DrawLevelColumn
+
+DrawLevelBottomPixel:
+sw 	$t1, 384($t0) 			# Draw bottom pixel
+addi 	$t2, $t2, 1			# Increment column accumulator
+addi 	$t0, $t0, 4 			# Increment location by 1 pixel
+j 	DrawLevelColumn
+
+DrawLevelEmpty:
+addi 	$t2, $t2, 1			# Increment column accumulator
+addi 	$t0, $t0, 4 			# Increment location by 1 pixel
+j 	DrawLevelColumn
+
+DrawLevelNoBottomPixel:
+sw 	$t1, 0($t0) 			# Draw column without bottom pixel
+sw 	$t1, 128($t0)
+sw 	$t1, 256($t0)
+addi 	$t2, $t2, 1			# Increment column accumulator
+addi 	$t0, $t0, 4 			# Increment location by 1 pixel
+j 	DrawLevelColumn
+
+DrawLevelTopBottomPixel:
+sw 	$t1, 0($t0) 			# Draw top and bottom pixel
+sw 	$t1, 384($t0)
+addi 	$t2, $t2, 1			# Increment column accumulator
+addi 	$t0, $t0, 4 			# Increment location by 1 pixel
+j 	DrawLevelColumn
+
+DrawLevelEnd:
 jr 	$ra
 
 
