@@ -13,8 +13,8 @@
 # - Display height in pixels: 256
 # - Base address for display: 0x10008000 ($gp)
 #
-# Milestone reached: 4
-# - Easy features implemented: 4
+# Milestone reached: 5
+# - Easy features implemented: 5
 # - Hard features implemented: 1
 # 
 # Additional features implemented:
@@ -23,6 +23,7 @@
 # - Easy: Display a death/respawn animation each time the player loses a frog
 # - Easy: Have objects in different rows move at different speeds
 # - Easy: Dynamic increase in difficulty as game progresses
+# - Easy: Make the frog point in the direction that it's travelling
 #
 ###################################################################################################
 
@@ -47,6 +48,8 @@ frogPosY: 		.word 0x7	# From top downwawrds, 0-based indexing, unit is in "frogh
 
 frogStartPosX: 		.word 0x30
 frogStartPosY: 		.word 0x7
+
+frogOrientation: 	.word 0x0 	# 0: north, 1: south, 2: west, 3: east
 
 logTopSpace: 		.space 512	# Top Log
 logBotSpace: 		.space 512 	# Bottom Log
@@ -90,6 +93,9 @@ jal 	InitMem				# InitMem for vehicleTopSpace
 la 	$a0, vehicleBotSpace 		# $a0 = vehicleBotSpace
 li 	$a1, 0				# $a1 = 0
 jal 	InitMem				# InitMem for vehicleBotSpace
+
+li 	$t0, 0 				# Initialize frog to face north
+sw 	$t0, frogOrientation
 
 Main:
 jal 	DrawBackground	
@@ -153,6 +159,9 @@ beq 	$t2, 0x64, RespondToD		# d is pressed
 j Main 					# not one of wasd, go back
 
 RespondToW:
+li 	$t2, 0 				# Orient frog north
+sw 	$t2, frogOrientation
+
 lw 	$t1, frogPosY 			# Store the y-pos of the frog into $t1
 beq 	$t1, 0, Main 			# Frog is in top row, go to Main
 subi 	$t1, $t1, 1 			# Move frog up 1 row
@@ -160,6 +169,9 @@ sw 	$t1, frogPosY			# Save the move
 j 	Main
 
 RespondToA:
+li 	$t2, 2 				# Orient frog west
+sw 	$t2, frogOrientation
+
 lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
 ble 	$t1, 16, MoveToLeftEnd 		# Frog is near the left edge, move to the left edge
 subi 	$t1, $t1, 16 			# Move frog left by 16 bytes
@@ -167,6 +179,9 @@ sw 	$t1, frogPosX 			# Save the move
 j 	Main
 
 RespondToS:
+li 	$t2, 1 				# Orient frog south
+sw 	$t2, frogOrientation
+
 lw 	$t1, frogPosY 			# Store the y-pos of the frog into $t1
 beq 	$t1, 7, Main 			# Frog is in bottom row, go to Main
 addi 	$t1, $t1, 1 			# Move frow down 1 row
@@ -174,6 +189,9 @@ sw 	$t1, frogPosY 			# Save the move
 j 	Main
 
 RespondToD:
+li 	$t2, 3 				# Orient frog east
+sw 	$t2, frogOrientation
+
 lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
 bge 	$t1, 96, MoveToRightEnd 	# Frog is near the right edge, move to the right edge
 addi 	$t1, $t1, 16 			# Move frog right by 16 bytes
@@ -771,12 +789,40 @@ add 	$t0, $t0, $t4			# Increment address with y-pos
 add 	$t1, $a0, $zero			# $t1 = colour of frog;
 add 	$t2, $zero, $zero 		# $t2 = 0;  // current row
 
-DrawFrogConditional:
+lw 	$t5, frogOrientation 		# Load orientation of frog to $t5
+
+DrawFrogConditional: 			# Draw frog based on its orientation
+beq 	$t5, 0, DrawFrogNorth
+beq 	$t5, 1, DrawFrogSouth
+beq 	$t5, 2, DrawFrogWest
+beq 	$t5, 3, DrawFrogEast
+
+DrawFrogNorth:
 beq 	$t2, 0, DrawFrogExterior 	# Draw first row of the frog
 beq 	$t2, 1, DrawFrogRow		# Draw second row of the frog
 beq 	$t2, 2, DrawFrogInterior	# Draw third row of the frog
 beq 	$t2, 3, DrawFrogRow		# Draw last row of the frog
+jr 	$ra				# Finish drawing the frog
 
+DrawFrogSouth:
+beq 	$t2, 0, DrawFrogRow	 	# Draw first row of the frog
+beq 	$t2, 1, DrawFrogInterior	# Draw second row of the frog
+beq 	$t2, 2, DrawFrogRow		# Draw third row of the frog
+beq 	$t2, 3, DrawFrogExterior	# Draw last row of the frog
+jr 	$ra				# Finish drawing the frog
+
+DrawFrogWest:
+beq 	$t2, 0, DrawFrogWestEdge 	# Draw first row of the frog
+beq 	$t2, 1, DrawFrogWestCentre	# Draw second row of the frog
+beq 	$t2, 2, DrawFrogWestCentre	# Draw third row of the frog
+beq 	$t2, 3, DrawFrogWestEdge	# Draw last row of the frog
+jr 	$ra				# Finish drawing the frog
+
+DrawFrogEast:
+beq 	$t2, 0, DrawFrogEastEdge 	# Draw first row of the frog
+beq 	$t2, 1, DrawFrogEastCentre	# Draw second row of the frog
+beq 	$t2, 2, DrawFrogEastCentre	# Draw third row of the frog
+beq 	$t2, 3, DrawFrogEastEdge	# Draw last row of the frog
 jr 	$ra				# Finish drawing the frog
 
 DrawFrogExterior:
@@ -798,6 +844,38 @@ j 	DrawFrogConditional
 DrawFrogInterior:
 sw 	$t1, 4($t0) 			# Draw the left torso
 sw 	$t1, 8($t0) 			# Draw the right torso
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j	DrawFrogConditional
+
+DrawFrogWestEdge:
+sw 	$t1, 0($t0) 			# Draw pixels 1, 2, 4
+sw 	$t1, 4($t0)
+sw 	$t1, 12($t0)
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j	DrawFrogConditional
+
+DrawFrogWestCentre:
+sw 	$t1, 4($t0) 			# Draw pixels 2, 3, 4
+sw 	$t1, 8($t0)
+sw 	$t1, 12($t0)
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j	DrawFrogConditional
+
+DrawFrogEastEdge:
+sw 	$t1, 0($t0) 			# Draw pixels 1, 3, 4
+sw 	$t1, 8($t0) 			
+sw 	$t1, 12($t0)
+addi 	$t0, $t0, 128			# Increment the display pointer to next row
+addi 	$t2, $t2, 1 			# Update row number
+j	DrawFrogConditional
+
+DrawFrogEastCentre:
+sw 	$t1, 0($t0) 			# Draw pixels 1, 2, 3
+sw 	$t1, 4($t0)
+sw 	$t1, 8($t0)
 addi 	$t0, $t0, 128			# Increment the display pointer to next row
 addi 	$t2, $t2, 1 			# Update row number
 j	DrawFrogConditional
@@ -960,7 +1038,8 @@ jr 	$ra
 # Return value: 	$v0: none
 
 Respawn:
-lw 	$t0, livesRemaining 			# livesRemaining is expected to be updated
+li 	$t0, 0 					# Orient the frog north after respawn
+sw 	$t0, frogOrientation
 
 lw 	$t1, frogStartPosX 			# Load the starting x-pos of frog in $t1
 sw	$t1, frogPosX 				# Reset x-pos of frog
