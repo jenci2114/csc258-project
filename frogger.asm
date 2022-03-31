@@ -14,7 +14,7 @@
 # - Base address for display: 0x10008000 ($gp)
 #
 # Milestone reached: 5
-# - Easy features implemented: 5
+# - Easy features implemented: 6
 # - Hard features implemented: 1
 # 
 # Additional features implemented:
@@ -24,6 +24,7 @@
 # - Easy: Have objects in different rows move at different speeds
 # - Easy: Dynamic increase in difficulty as game progresses
 # - Easy: Make the frog point in the direction that it's travelling
+# - Easy: Add sound effects
 #
 ###################################################################################################
 
@@ -162,6 +163,8 @@ RespondToW:
 li 	$t2, 0 				# Orient frog north
 sw 	$t2, frogOrientation
 
+jal 	PlayMoveSound
+
 lw 	$t1, frogPosY 			# Store the y-pos of the frog into $t1
 beq 	$t1, 0, Main 			# Frog is in top row, go to Main
 subi 	$t1, $t1, 1 			# Move frog up 1 row
@@ -171,6 +174,8 @@ j 	Main
 RespondToA:
 li 	$t2, 2 				# Orient frog west
 sw 	$t2, frogOrientation
+
+jal 	PlayMoveSound
 
 lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
 ble 	$t1, 16, MoveToLeftEnd 		# Frog is near the left edge, move to the left edge
@@ -182,6 +187,8 @@ RespondToS:
 li 	$t2, 1 				# Orient frog south
 sw 	$t2, frogOrientation
 
+jal 	PlayMoveSound
+
 lw 	$t1, frogPosY 			# Store the y-pos of the frog into $t1
 beq 	$t1, 7, Main 			# Frog is in bottom row, go to Main
 addi 	$t1, $t1, 1 			# Move frow down 1 row
@@ -191,6 +198,8 @@ j 	Main
 RespondToD:
 li 	$t2, 3 				# Orient frog east
 sw 	$t2, frogOrientation
+
+jal 	PlayMoveSound
 
 lw 	$t1, frogPosX 			# Store the x-pos of the frog into $t1
 bge 	$t1, 96, MoveToRightEnd 	# Frog is near the right edge, move to the right edge
@@ -219,9 +228,8 @@ lw 	$a0, frogDeathColour 		# Draw status bar with frogDeathColour
 jal 	DrawStatusBar
 lw 	$a0, frogDeathColour		# Draw frog with frogDeathColour
 jal 	DrawFrog
-li 	$v0, 32 			# Sleep
-li 	$a0, 1000 			# Sleep for 1s
-syscall
+
+jal 	PlayDeathSound
 
 lw 	$t0, livesRemaining 		# Store the lives remaining in $t0
 subi 	$t0, $t0, 1 			# Lives remaining -1
@@ -245,9 +253,7 @@ syscall
 lw 	$a0, lifeColour			# Draw status bar with life colour
 jal 	DrawStatusBar
 
-li 	$v0, 32 			# Sleep
-li 	$a0, 1000 			# Sleep for 1s
-syscall
+jal 	PlayLevelCompleteSound
 
 jal 	IncreaseSpeeds 			# Increase speeds of objects to level 2 speed
 
@@ -284,9 +290,7 @@ syscall
 lw 	$a0, lifeColour			# Draw status bar with life colour
 jal 	DrawStatusBar
 
-li 	$v0, 32 			# Sleep
-li 	$a0, 1000 			# Sleep for 1s
-syscall
+jal 	PlayWinSound
 
 lw 	$t0, goalRegionColour 		# Set entire screen to goal region colour
 lw 	$t1, displayAddress 		# Initialize $t1 to displayAddress
@@ -1162,11 +1166,202 @@ jr 	$ra
 
 # |-----------------------------------------------------------------------------------------------|
 
+# |--------------------------------| Function: PlayMoveSound |------------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	none
+
+PlayMoveSound:
+li 	$v0, 31				# C
+li 	$a0, 60 			
+li 	$a1, 150
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
+
+# |--------------------------------| Function: PlayDeathSound |-----------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	none
+
+PlayDeathSound:
+li 	$v0, 33				# High C
+li 	$a0, 72 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 33				# G
+li 	$a0, 67 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 33				# C
+li 	$a0, 60 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
 
 
+# |----------------------------| Function: PlayLevelCompleteSound |-------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	none
+
+PlayLevelCompleteSound:
+li 	$v0, 33				# C
+li 	$a0, 60 			
+li 	$a1, 250
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 33				# E
+li 	$a0, 64 			
+li 	$a1, 250
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 33				# G
+li 	$a0, 67 			
+li 	$a1, 250
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 33				# High C
+li 	$a0, 72 			
+li 	$a1, 250
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
 
 
+# |---------------------------------| Function: PlayWinSound |------------------------------------|
+ 
+# Arguments: 		none
+# Return value: 	none
 
+PlayWinSound:
+li 	$v0, 31		# I		
+li 	$a0, 60 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 64 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 67 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 33	
+li 	$a0, 72 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
 
+li 	$v0, 31		# IV		
+li 	$a0, 60 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 65 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 69 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 33	
+li 	$a0, 72 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 31		# V7		
+li 	$a0, 62 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 65 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 67 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 33	
+li 	$a0, 71 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+li 	$v0, 31		# I		
+li 	$a0, 60 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 64 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 31				
+li 	$a0, 67 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+li 	$v0, 33	
+li 	$a0, 72 			
+li 	$a1, 500
+li 	$a2, 0
+li 	$a3, 127
+syscall
+
+jr 	$ra
+
+# |-----------------------------------------------------------------------------------------------|
 
 
