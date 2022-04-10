@@ -1,6 +1,8 @@
 # CSC258-Project
 A Frogger game written in Assembly
 
+Before you copy anything, consider if you can handle an [**academic offence**](https://www.artsci.utoronto.ca/current/academic-advising-and-support/student-academic-integrity/academic-misconduct) charge.
+
 # Gameplay
 - There are two levels in the game
 - Your goal is to move to the goal region in each level without depleting your lives
